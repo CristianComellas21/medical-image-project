@@ -6,6 +6,8 @@ SEGMENTATION_PATH = f"{DICOM_FILES_PATH}/09-12-1997-NA-AP LIVER-64595/300.000000
 
 
 def main():
+
+    # Load the segmentation DICOM file
     segmentation_dicom = dicom.read_file(SEGMENTATION_PATH)
     print(segmentation_dicom)
     print(segmentation_dicom.pixel_array.shape)
