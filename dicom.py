@@ -10,15 +10,11 @@ def concat_dicom_files(dicom_files: [dicom.FileDataset]) -> dict:
     # print(len(dicom_files))
 
     if len(dicom_files) == 1:
+        pixel_array = dicom_files[0].pixel_array
+        del dicom_files[0].PixelData
         return {
-            "pixel_array": dicom_files[0].pixel_array,
-            "metadata": [
-                {
-                    key: dicom_files[0][key].value
-                    for key in dicom_files[0].keys()
-                    if key != "PixelData"
-                }
-            ],
+            "pixel_array": pixel_array,
+            "metadata": [dicom_files[0]],
         }
 
     # Get the first DICOM file in the list
@@ -45,14 +41,11 @@ def concat_dicom_files(dicom_files: [dicom.FileDataset]) -> dict:
         # Store the pixel array in the concatenated pixel array
         concatenated_pixel_array[idx] = pixel_array
 
+        # Remove the pixel array from the DICOM file
+        del dicom_file.PixelData
+
         # Store metadata
-        metadata.append(
-            {
-                key: dicom_file[key].value
-                for key in dicom_file.keys()
-                if key != "PixelData"
-            }
-        )
+        metadata.append(dicom_file)
 
     return {"pixel_array": concatenated_pixel_array, "metadata": metadata}
 
