@@ -8,8 +8,8 @@ from dicom import read_dicom_files
 
 INITIAL_SLICE = 0
 
+DICOM_FOLDER = "data/HCC-TACE-Seg/HCC_003"
 
-def plot_interactive_dicom(dicom_pixel_array: np.ndarray, axis: int = 0) -> None:
 
 def plot_interactive_dicom(
     dicom_pixel_array: np.ndarray, axis: int = 0, aspect: float = 1.0
@@ -72,3 +72,34 @@ def __apply_colormap_to_dicom(
     return np.array(color_mapped_slices)
 
 
+def main():
+    # Load all DICOM files in the folder
+    dicom_folder = Path(f"{DICOM_FOLDER}/09-12-1997-NA-AP LIVER-64595")
+
+    dicom_files = read_dicom_files(dicom_folder)
+
+    # Get 1 DICOM data
+    dicom_data = dicom_files["2.000000-PRE LIVER-87624"][1]
+    pixel_array = dicom_data["pixel_array"]
+    metadata = dicom_data["metadata"]
+
+    # Get slice thickness
+    slice_thickness = metadata[0].SliceThickness
+    print(f"Slice thickness: {slice_thickness}")
+
+    # Get pixel spacing
+    pixel_spacing = metadata[0].PixelSpacing
+    print(f"Pixel spacing: {pixel_spacing}")
+
+    # Plot the DICOM files
+    aspects = [
+        1.0,
+        slice_thickness / pixel_spacing[0],
+        slice_thickness / pixel_spacing[1],
+    ]
+    for axis in range(3):
+        plot_interactive_dicom(pixel_array, axis=axis, aspect=aspects[axis])
+
+
+if __name__ == "__main__":
+    main()
