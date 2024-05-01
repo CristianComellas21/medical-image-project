@@ -12,12 +12,15 @@ DICOM_FOLDER = "data/HCC-TACE-Seg/HCC_003"
 
 
 def plot_interactive_dicom(
-    dicom_pixel_array: np.ndarray, axis: int = 0, aspect: float = 1.0
+    dicom_pixel_array: np.ndarray,
+    axis: int = 0,
+    aspect: float = 1.0,
+    colormap: str = "bone",
 ) -> None:
 
     # Convert all the slices to a color mapped version using the "bone" colormap
     color_mapped_slices = __apply_colormap_to_dicom(
-        dicom_pixel_array, axis=axis, normalize=True, apply_log=True
+        dicom_pixel_array, axis=axis, normalize=True, apply_log=True, colormap=colormap
     )
 
     # Create a figure and axis and adjust the bottom of the plot to make space for the slider
