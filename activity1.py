@@ -60,6 +60,22 @@ def main():
         segmentation_pixel_array, segmentation_metadata
     )
 
+    # Rotate each layer of the segmentation 180 degrees on the median plane
+    for key, value in segmentation_layers.items():
+
+        # Rotate the pixel array
+        value["pixel_array"] = rotate(
+            value["pixel_array"], 180, axes=(0, 2), reshape=False
+        )
+    #
+    # axis = 1
+    # plot_interactive_dicom(
+    #     segmentation_layers["liver"]["pixel_array"],
+    #     axis=axis,
+    # )
+    #
+    # exit(0)
+
     # Align number of slices with the reference image
     n_slices_ref = pixel_array.shape[0]
     n_slices_seg = list(segmentation_layers.values())[0]["pixel_array"].shape[0]
@@ -92,7 +108,6 @@ def main():
     n = 16
     projections = []
 
-    # for idx, angle in enumerate(np.linspace(0, 360 * (n - 1) / n, num=n)):
     for idx, angle in tqdm(
         enumerate(np.linspace(0, 360 * (n - 1) / n, num=n)),
         total=n,
@@ -130,9 +145,10 @@ def main():
         # Alpha fuse the image and the segmentation
         final_projection = alpha * projection + (1 - alpha) * projection_segmentation
 
-        final_projection[normalized_projection_segmentation == 0] = projection[
-            normalized_projection_segmentation == 0
-        ]
+        indices = np.isclose(
+            normalized_projection_segmentation, 0, atol=1e-5, rtol=1e-5
+        )
+        final_projection[indices] = projection[indices]
 
         plt.imshow(
             final_projection,
