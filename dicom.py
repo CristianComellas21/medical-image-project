@@ -41,7 +41,10 @@ def read_dicom_files(dicom_folder: Path) -> dict[str, dicom.FileDataset]:
         prev_dicom_idx = None
         for dicom_file in dicom_files_list:
             # Get current dicom index
-            current_dicom_idx = int(dicom_file.stem.split("-")[0])
+            current_dicom_idx = (
+                int(dicom_file.stem.split("-")[0]) if "-" in dicom_file.stem else 1
+            )
+
             if prev_dicom_idx is None:
                 prev_dicom_idx = current_dicom_idx
 
