@@ -3,6 +3,9 @@ from pathlib import Path
 import numpy as np
 import pydicom as dicom
 
+ATLAS_TEXT_FILE = Path("data/atlas/AAL3_1mm.txt")
+ATLAS_INFO = None
+
 
 def read_dicom_files(dicom_folder: Path) -> dict[str, dicom.FileDataset]:
     """Read all DICOM files in a folder and return them as a dictionary."""
@@ -101,6 +104,22 @@ def get_segmentation_layers(
     return layers
 
 
+def get_atlas_mask(img_atlas: np.ndarray, region_name: str) -> np.ndarray:
+
+    # Load the atlas info if it is not already loaded
+    global ATLAS_INFO
+    if ATLAS_INFO is None:
+        ATLAS_INFO = __parse_atlas_file(ATLAS_TEXT_FILE)
+
+    # Get the region number from the atlas text file
+    left, right = ATLAS_INFO[region_name]
+    print(left, right)
+    return (img_atlas >= left) & (img_atlas <= right)
+
+
+# ---------- Helper functions ----------
+
+
 def __concat_dicom_files(dicom_files: [dicom.FileDataset]) -> dict:
     """Concatenate a list of DICOM files into a single DICOM file."""
     # print(dicom_files)
@@ -145,3 +164,25 @@ def __concat_dicom_files(dicom_files: [dicom.FileDataset]) -> dict:
         metadata.append(dicom_file)
 
     return {"pixel_array": concatenated_pixel_array, "metadata": metadata}
+
+
+def __parse_atlas_file(atlas_file: Path) -> dict[str, tuple[int, int]]:
+    """Parse the atlas text file and return it as a dictionary."""
+    with open(atlas_file, "r") as f:
+        lines = f.readlines()
+
+    # Create an empty dictionary to store the atlas regions
+    atlas_regions = {}
+
+    # Loop through the lines 2 by 2
+    for i in range(0, len(lines), 2):
+
+        # Get the region name and the region numbers
+        number_left, region_name = lines[i].strip().split(" ")[:2]
+        number_right = lines[i + 1].strip().split(" ")[0]
+        region_name = region_name.removesuffix("_L")
+
+        # Store the region in the dictionary
+        atlas_regions[region_name] = (int(number_left), int(number_right))
+
+    return atlas_regions
