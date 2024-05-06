@@ -92,7 +92,7 @@ def get_segmentation_layers(
             * n_elements_per_sequence : segment_number
             * n_elements_per_sequence
         ]
-        pixel_array[pixel_array == 1] = segment_number
+        pixel_array = pixel_array.astype(np.bool_)
 
         # Store the pixel array in the dictionary along with the name and number
         layers[name] = {
