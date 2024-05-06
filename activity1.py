@@ -19,11 +19,19 @@ RESULTS_FOLDER = "results"
 
 def MIP_sagittal_plane(img_dcm: np.ndarray) -> np.ndarray:
     """Compute the maximum intensity projection on the sagittal orientation."""
-    # Your code here:
-    #   See `np.max(...)`
-    # ...
     return np.max(img_dcm, axis=2)
 
+
+def closest_index_different_from_zero_sagittal_plane(img):
+    """Return the closest index different from zero on the sagittal plane."""
+
+    # Get the indices of the maximum value along the z-axis
+    mask = img != 0
+    indices = mask.argmax(axis=2)
+    indices = np.expand_dims(indices, axis=2)
+    res = img[indices]
+    print(res.shape)
+    return res 
 
 def rotate_on_axial_plane(img_dcm: np.ndarray, angle_in_degrees: float) -> np.ndarray:
     """Rotate the image on the axial plane."""
@@ -37,12 +45,9 @@ def main():
     dicom_files = read_dicom_files(dicom_folder)
 
     # Get first DICOM data
-    dicom_data = dicom_files["2.000000-PRE LIVER-87624"][1]
+    dicom_data = dicom_files["4.000000-Recon 2 LIVER 3 PHASE AP-18688"][1]
     pixel_array = dicom_data["pixel_array"]
     metadata = dicom_data["metadata"]
-
-    # for value in metadata:
-    #     print(value.SliceLocation)
 
     # Get slice thickness
     slice_thickness = metadata[0].SliceThickness
@@ -60,37 +65,7 @@ def main():
         segmentation_pixel_array, segmentation_metadata
     )
 
-    # Rotate each layer of the segmentation 180 degrees on the median plane
-    for key, value in segmentation_layers.items():
-
-        # Rotate the pixel array
-        value["pixel_array"] = rotate(
-            value["pixel_array"], 180, axes=(0, 2), reshape=False
-        )
-    #
-    # axis = 1
-    # plot_interactive_dicom(
-    #     segmentation_layers["liver"]["pixel_array"],
-    #     axis=axis,
-    # )
-    #
-    # exit(0)
-
-    # Align number of slices with the reference image
-    n_slices_ref = pixel_array.shape[0]
-    n_slices_seg = list(segmentation_layers.values())[0]["pixel_array"].shape[0]
-
-    n_slices = min(n_slices_ref, n_slices_seg)
-
-    if n_slices < n_slices_ref:
-        indices = np.linspace(0, n_slices_ref - 1, num=n_slices, dtype=int)
-        pixel_array = pixel_array[indices]
-    else:
-        indices = np.linspace(0, n_slices_seg - 1, num=n_slices, dtype=int)
-        segmentation_layers = {
-            key: {"pixel_array": value["pixel_array"][indices]}
-            for key, value in segmentation_layers.items()
-        }
+    # TODO: Align the slices of the pixel array and the segmentation layers
 
     # Create folder for the results
     Path(RESULTS_FOLDER).mkdir(parents=True, exist_ok=True)
@@ -119,36 +94,39 @@ def main():
 
         # Rotate the segmentation layers pixel arrays on the axial plane
         rotated_segmentation_layers = [
-            rotate_on_axial_plane(layer["pixel_array"], angle)
+            rotate_on_axial_plane(layer["pixel_array"], angle).astype(np.int8)
+            * layer["num"]
             for layer in segmentation_layers.values()
         ]
 
         # Compute the maximum intensity projection on the sagittal orientation
         projection = MIP_sagittal_plane(rotated_img)
         projection_segmentation_layers = np.array(
-            [MIP_sagittal_plane(layer) for layer in rotated_segmentation_layers]
+            [
+                closest_index_different_from_zero_sagittal_plane(layer)
+                for layer in rotated_segmentation_layers
+            ]
         )
+
+        # Combine the segmentation layers
         projection_segmentation = projection_segmentation_layers.max(axis=0)
 
-        # Normalize the projections
+        # Normalize the projection
         normalized_projection = (projection - img_min) / (img_max - img_min)
-        normalized_projection_segmentation = (
-            projection_segmentation - projection_segmentation.min()
-        ) / (projection_segmentation.max() - projection_segmentation.min())
 
         # Apply colormap to the projections
-        projection = plt.colormaps[cm_image](normalized_projection)
-        projection_segmentation = plt.colormaps[cm_segmentation](
-            normalized_projection_segmentation
+        projection_cmp = plt.colormaps[cm_image](normalized_projection)
+        projection_segmentation_cmp = plt.colormaps[cm_segmentation](
+            projection_segmentation
         )
 
         # Alpha fuse the image and the segmentation
-        final_projection = alpha * projection + (1 - alpha) * projection_segmentation
-
-        indices = np.isclose(
-            normalized_projection_segmentation, 0, atol=1e-5, rtol=1e-5
+        final_projection = (
+            alpha * projection_cmp + (1 - alpha) * projection_segmentation_cmp
         )
-        final_projection[indices] = projection[indices]
+
+        indices = np.isclose(projection_segmentation, 0, atol=1e-5, rtol=1e-5)
+        final_projection[indices] = projection_cmp[indices]
 
         plt.imshow(
             final_projection,
