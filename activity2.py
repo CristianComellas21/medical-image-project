@@ -1,10 +1,11 @@
 from pathlib import Path
 
 import numpy as np
+from scipy.ndimage import rotate, shift, zoom
 from scipy.optimize import minimize
+from skimage.transform import resize
 
 from dicom import get_atlas_mask, read_dicom_files
-from transform import translation_then_axialrotation
 from visualize import plot_interactive_dicom
 
 REF_FOLDER = Path("data/REF")
@@ -19,64 +20,83 @@ def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
     return np.mean((image1 - image2) ** 2)
 
 
+def apply_rigid_transformation(
+    img: np.ndarray, parameters: tuple[float, ...]
+) -> np.ndarray:
+    """Apply a rigid transformation to an image."""
+
+    angle_0, angle_1, angle_2, translation_0, translation_1, translation_2 = parameters
+
+    # Rotate the image
+    rotated_img = rotate(img, angle_0, axes=(1, 2), reshape=False)
+    rotated_img = rotate(rotated_img, angle_1, axes=(0, 2), reshape=False)
+    rotated_img = rotate(rotated_img, angle_2, axes=(0, 1), reshape=False)
+
+    # Translate the image
+    translated_img = shift(rotated_img, (translation_0, translation_1, translation_2))
+
+    return translated_img
+
+
 def found_best_coregistration(
     ref_img: np.ndarray, input_img: np.ndarray
 ) -> tuple[float, ...]:
     """Find the best registration parameters."""
     initial_parameters = [
-        0,
-        0,
-        0,  # Translation vector
-        0,  # Angle in rads
-        1,
-        0,
-        0,  # Axis of rotation
+        0,  # Angle of rotation in degrees around axial axis (0)
+        0,  # Angle of rotation in degrees around coronal axis (1)
+        0,  # Angle of rotation in degrees around sagittal axis (2)
+        0,  # Translation axis 0
+        0,  # Translation axis 1
+        0,  # Translation axis 2
     ]
 
     def function_to_minimize(parameters):
-        """Transform input landmarks, then compare with reference landmarks."""
-        # Your code here:
-        #   ...
-        inp_landmarks_transf = np.asarray(
-            [
-                translation_then_axialrotation(point, parameters)
-                for point in inp_landmarks
-            ]
-        )
-        return vector_of_residuals(ref_landmarks, inp_landmarks_transf)
+        """Transform the input image using a screw transformation and compute mean squared error."""
+
+        transformed_img = apply_rigid_transformation(input_img, parameters)
+
+        return mean_squared_error(ref_img, transformed_img)
 
     # Apply least squares optimization
-    result = least_squares(function_to_minimize, x0=initial_parameters, verbose=1)
+    result = minimize(function_to_minimize, initial_parameters, method="Nelder-Mead")
     return result
 
 
 def main():
 
-    # Load dicom reference files
-    dicom_ref = read_dicom_files(REF_FOLDER)
-    ref_pixel_array = dicom_ref[1]["pixel_array"]
-    ref_metadata = dicom_ref[1]["metadata"]
-    print(f"{ref_pixel_array.shape=}")
-
     # Load dicom file to be registered
     dicom_input = read_dicom_files(INPUT_FOLDER)
     input_pixel_array = dicom_input[1]["pixel_array"]
-    input_metadata = dicom_input[1]["metadata"]
+    # input_metadata = dicom_input[1]["metadata"]
     print(f"{input_pixel_array.shape=}")
 
-    # Load atlas dicom files
-    atlas_dicom = read_dicom_files(ATLAS_FOLDER)
-    atlas_pixel_array = atlas_dicom[1]["pixel_array"]
-    atlas_metadata = atlas_dicom[1]["metadata"]
-    print(f"{atlas_pixel_array.shape=}")
-    print(np.unique(atlas_pixel_array))
+    # Load dicom reference files
+    dicom_ref = read_dicom_files(REF_FOLDER)
+    ref_pixel_array = dicom_ref[1]["pixel_array"]
+    ref_pixel_array = resize(
+        ref_pixel_array, input_pixel_array.shape, anti_aliasing=True
+    )
+    # ref_metadata = dicom_ref[1]["metadata"]
+    print(f"{ref_pixel_array.shape=}")
 
-    # Get atlas thalamus mask
-    thalamus_mask = get_atlas_mask(atlas_pixel_array, "Amygdala")
-    print(f"{thalamus_mask.shape=}")
-    print(np.unique(thalamus_mask))
+    # Find the best coregistration parameters
+    best_parameters = found_best_coregistration(ref_pixel_array, input_pixel_array)
+    print(f"{best_parameters=}")
 
-    plot_interactive_dicom(thalamus_mask, axis=0)
+    # # Load atlas dicom files
+    # atlas_dicom = read_dicom_files(ATLAS_FOLDER)
+    # atlas_pixel_array = atlas_dicom[1]["pixel_array"]
+    # # atlas_metadata = atlas_dicom[1]["metadata"]
+    # print(f"{atlas_pixel_array.shape=}")
+    # print(np.unique(atlas_pixel_array))
+    #
+    # # Get atlas thalamus mask
+    # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Amygdala")
+    # print(f"{thalamus_mask.shape=}")
+    # print(np.unique(thalamus_mask))
+    #
+    # plot_interactive_dicom(thalamus_mask, axis=0)
 
 
 if __name__ == "__main__":
