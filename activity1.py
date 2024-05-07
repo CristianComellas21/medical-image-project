@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -25,13 +26,24 @@ def MIP_sagittal_plane(img_dcm: np.ndarray) -> np.ndarray:
 def closest_index_different_from_zero_sagittal_plane(img):
     """Return the closest index different from zero on the sagittal plane."""
 
+    # # Get the indices of the maximum value along the z-axis
+    # indices = np.argmax(img != 0, axis=2)
+    #
+    # # Create a matrix with the indices
+    # indices_matrix = np.indices(indices.shape)
+    #
+    # # Get the values of the image at the indices
+    # res = np.where(img[indices_matrix[0], indices_matrix[1], indices] != 0, img, 0)
+    #
+    # # Return the maximum value along the z-axis
+    # return res.max(axis=2)
+
     # Get the indices of the maximum value along the z-axis
-    mask = img != 0
-    indices = mask.argmax(axis=2)
-    indices = np.expand_dims(indices, axis=2)
-    res = img[indices]
-    print(res.shape)
-    return res 
+    indices = np.argmax(img != 0, axis=2)
+
+    result = img[np.arange(img.shape[0])[:, None], np.arange(img.shape[1]), indices]
+    return result
+
 
 def rotate_on_axial_plane(img_dcm: np.ndarray, angle_in_degrees: float) -> np.ndarray:
     """Rotate the image on the axial plane."""
@@ -39,6 +51,21 @@ def rotate_on_axial_plane(img_dcm: np.ndarray, angle_in_degrees: float) -> np.nd
 
 
 def main():
+
+    # Parse the arguments
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-m",
+        "--mode",
+        help="Mode of projection",
+        type=str,
+        choices=["MIP", "CIP"],
+        default="MIP",
+    )
+    args = parser.parse_args()
+
+    # Get the mode of projection
+    mode = args.mode
 
     # Load all DICOM files in the folder
     dicom_folder = Path(f"{DICOM_FOLDER}/09-12-1997-NA-AP LIVER-64595")
@@ -65,7 +92,11 @@ def main():
         segmentation_pixel_array, segmentation_metadata
     )
 
-    # TODO: Align the slices of the pixel array and the segmentation layers
+    # Sort the slices of the pixel array and the segmentation layers
+    # The slices of the segmentation are sorted on the load function
+    ordered_indices = np.argsort([m.ImagePositionPatient[2] for m in metadata])
+    pixel_array = pixel_array[ordered_indices]
+    metadata = [metadata[i] for i in ordered_indices]
 
     # Create folder for the results
     Path(RESULTS_FOLDER).mkdir(parents=True, exist_ok=True)
@@ -80,7 +111,7 @@ def main():
     alpha = 0.3
 
     #  Create projections
-    n = 16
+    n = 36
     projections = []
 
     for idx, angle in tqdm(
@@ -101,15 +132,19 @@ def main():
 
         # Compute the maximum intensity projection on the sagittal orientation
         projection = MIP_sagittal_plane(rotated_img)
-        projection_segmentation_layers = np.array(
-            [
-                closest_index_different_from_zero_sagittal_plane(layer)
-                for layer in rotated_segmentation_layers
-            ]
-        )
 
-        # Combine the segmentation layers
-        projection_segmentation = projection_segmentation_layers.max(axis=0)
+        if mode == "CIP":
+            # Combine the segmentation layers
+            projection_segmentation = np.sum(rotated_segmentation_layers, axis=0)
+            projection_segmentation = closest_index_different_from_zero_sagittal_plane(
+                projection_segmentation
+            )
+        elif mode == "MIP":
+            # Combine the segmentation layers
+            projection_segmentation_layers = np.array(
+                [MIP_sagittal_plane(layer) for layer in rotated_segmentation_layers]
+            )
+            projection_segmentation = projection_segmentation_layers.max(axis=0)
 
         # Normalize the projection
         normalized_projection = (projection - img_min) / (img_max - img_min)
@@ -134,7 +169,7 @@ def main():
             vmax=img_max,
             aspect=aspect,
         )
-        plt.savefig(f"{RESULTS_FOLDER}/Projection_{idx}.png")  # Save animation
+        plt.savefig(f"{RESULTS_FOLDER}/Projection_{mode}_{idx}.png")  # Save animation
         projections.append(final_projection)  # Save for later animation
 
     # Save and visualize animation
@@ -151,7 +186,7 @@ def main():
         for img in projections
     ]
     anim = animation.ArtistAnimation(fig, animation_data, interval=250, blit=True)
-    anim.save("results/Animation.gif")  # Save animation
+    anim.save(f"results/Animation_{mode}.gif")  # Save animation
     plt.show()  # Show animation
 
 

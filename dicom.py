@@ -94,6 +94,22 @@ def get_segmentation_layers(
         ]
         pixel_array = pixel_array.astype(np.bool_)
 
+        # Get the image position patient of the indices
+        ordered_indices = np.argsort(
+            [
+                segmentation_metadata.PerFrameFunctionalGroupsSequence[i]
+                .PlanePositionSequence[0]
+                .ImagePositionPatient[2]
+                for i in range(
+                    (segment_number - 1) * n_elements_per_sequence,
+                    segment_number * n_elements_per_sequence,
+                )
+            ]
+        )
+
+        # Sort the pixel array
+        pixel_array = pixel_array[ordered_indices]
+
         # Store the pixel array in the dictionary along with the name and number
         layers[name] = {
             "pixel_array": pixel_array,
