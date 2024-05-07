@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pydicom as dicom
@@ -7,7 +8,7 @@ ATLAS_TEXT_FILE = Path("data/atlas/AAL3_1mm.txt")
 ATLAS_INFO = None
 
 
-def read_dicom_files(dicom_folder: Path) -> dict[str, dicom.FileDataset]:
+def read_dicom_files(dicom_folder: Path) -> dict[Union[str, int], dicom.FileDataset]:
     """Read all DICOM files in a folder and return them as a dictionary."""
 
     # Create an empty dictionary to store the DICOM files
@@ -129,7 +130,6 @@ def get_atlas_mask(img_atlas: np.ndarray, region_name: str) -> np.ndarray:
 
     # Get the region number from the atlas text file
     left, right = ATLAS_INFO[region_name]
-    print(left, right)
     return (img_atlas >= left) & (img_atlas <= right)
 
 
