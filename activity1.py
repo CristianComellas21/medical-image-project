@@ -26,18 +26,6 @@ def MIP_sagittal_plane(img_dcm: np.ndarray) -> np.ndarray:
 def closest_index_different_from_zero_sagittal_plane(img):
     """Return the closest index different from zero on the sagittal plane."""
 
-    # # Get the indices of the maximum value along the z-axis
-    # indices = np.argmax(img != 0, axis=2)
-    #
-    # # Create a matrix with the indices
-    # indices_matrix = np.indices(indices.shape)
-    #
-    # # Get the values of the image at the indices
-    # res = np.where(img[indices_matrix[0], indices_matrix[1], indices] != 0, img, 0)
-    #
-    # # Return the maximum value along the z-axis
-    # return res.max(axis=2)
-
     # Get the indices of the maximum value along the z-axis
     indices = np.argmax(img != 0, axis=2)
 
@@ -94,7 +82,7 @@ def main():
 
     # Sort the slices of the pixel array and the segmentation layers
     # The slices of the segmentation are sorted on the load function
-    ordered_indices = np.argsort([m.ImagePositionPatient[2] for m in metadata])
+    ordered_indices = np.argsort([m.ImagePositionPatient[2] for m in metadata])[::-1]
     pixel_array = pixel_array[ordered_indices]
     metadata = [metadata[i] for i in ordered_indices]
 
@@ -105,8 +93,10 @@ def main():
     fig, _ = plt.subplots()
     cm_image = "bone"
     cm_segmentation = "tab10"
-    img_min = pixel_array.min()
-    img_max = pixel_array.max()
+    img_min = -1000  # pixel_array.min()
+    img_max = 1000  # pixel_array.max()
+    # img_min = pixel_array.min()
+    # img_max = pixel_array.max()
     aspect = slice_thickness / pixel_spacing[0]
     alpha = 0.3
 
