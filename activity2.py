@@ -20,24 +20,6 @@ def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
     return np.mean((image1 - image2) ** 2)
 
 
-def apply_rigid_transformation(
-    img: np.ndarray, parameters: tuple[float, ...]
-) -> np.ndarray:
-    """Apply a rigid transformation to an image."""
-
-    angle_0, angle_1, angle_2, translation_0, translation_1, translation_2 = parameters
-
-    # Rotate the image
-    rotated_img = rotate(img, angle_0, axes=(1, 2), reshape=False)
-    rotated_img = rotate(rotated_img, angle_1, axes=(0, 2), reshape=False)
-    rotated_img = rotate(rotated_img, angle_2, axes=(0, 1), reshape=False)
-
-    # Translate the image
-    translated_img = shift(rotated_img, (translation_0, translation_1, translation_2))
-
-    return translated_img
-
-
 def found_best_coregistration(
     ref_img: np.ndarray, input_img: np.ndarray
 ) -> tuple[float, ...]:
