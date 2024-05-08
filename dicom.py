@@ -106,7 +106,6 @@ def get_segmentation_layers(
                     segment_number * n_elements_per_sequence,
                 )
             ]
-        )
         )[::-1]
 
         # Sort the pixel array
@@ -192,14 +191,24 @@ def __parse_atlas_file(atlas_file: Path) -> dict[str, tuple[int, int]]:
     atlas_regions = {}
 
     # Loop through the lines 2 by 2
+    prev_name = None
+    left_number = -1
     for i in range(0, len(lines), 2):
 
-        # Get the region name and the region numbers
-        number_left, region_name = lines[i].strip().split(" ")[:2]
-        number_right = lines[i + 1].strip().split(" ")[0]
-        region_name = region_name.removesuffix("_L")
+        # Get the region base name and the region number
+        number, region_base_name = lines[i].strip().split(" ")[:2]
+        region_base_name = region_base_name.split("_")[0]
 
-        # Store the region in the dictionary
-        atlas_regions[region_name] = (int(number_left), int(number_right))
+        # If we are at the first region, store the name and number
+        if prev_name is None:
+            left_number = number
+            prev_name = region_base_name
+            continue
+
+        if region_base_name != prev_name:
+
+            atlas_regions[prev_name] = (int(left_number), int(number) - 1)
+            prev_name = region_base_name
+            left_number = number
 
     return atlas_regions
