@@ -80,23 +80,22 @@ def main():
     # ref_metadata = dicom_ref[1]["metadata"]
     print(f"{ref_pixel_array.shape=}")
 
-    # Find the best coregistration parameters
-    best_parameters = found_best_coregistration(ref_pixel_array, input_pixel_array)
-    print(f"{best_parameters=}")
+    # # Find the best coregistration parameters
+    # best_parameters = found_best_coregistration(ref_pixel_array, input_pixel_array)
+    # print(f"{best_parameters=}")
 
-    # # Load atlas dicom files
-    # atlas_dicom = read_dicom_files(ATLAS_FOLDER)
-    # atlas_pixel_array = atlas_dicom[1]["pixel_array"]
-    # # atlas_metadata = atlas_dicom[1]["metadata"]
-    # print(f"{atlas_pixel_array.shape=}")
-    # print(np.unique(atlas_pixel_array))
-    #
-    # # Get atlas thalamus mask
-    # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Amygdala")
-    # print(f"{thalamus_mask.shape=}")
-    # print(np.unique(thalamus_mask))
-    #
-    # plot_interactive_dicom(thalamus_mask, axis=0)
+    # Load atlas dicom files
+    atlas_dicom = read_dicom_files(ATLAS_FOLDER)
+    atlas_pixel_array = atlas_dicom[1]["pixel_array"]
+    # atlas_metadata = atlas_dicom[1]["metadata"]
+    print(f"{atlas_pixel_array.shape=}")
+
+    # Get atlas thalamus mask
+    thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
+    print(f"{thalamus_mask.shape=}")
+    print(np.unique(thalamus_mask))
+
+    plot_interactive_dicom(thalamus_mask.astype(np.float32), axis=0)
 
 
 if __name__ == "__main__":
