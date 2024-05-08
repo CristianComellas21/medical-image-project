@@ -107,6 +107,7 @@ def get_segmentation_layers(
                 )
             ]
         )
+        )[::-1]
 
         # Sort the pixel array
         pixel_array = pixel_array[ordered_indices]
