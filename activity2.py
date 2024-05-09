@@ -1,16 +1,18 @@
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import rotate, shift, zoom
-from scipy.optimize import minimize
+from scipy.optimize import least_squares
 from skimage.transform import resize
 
 from dicom import get_atlas_mask, read_dicom_files
+from transform import apply_inverse_rigid_transformation, apply_rigid_transformation
 from visualize import plot_interactive_dicom
 
 REF_FOLDER = Path("data/REF")
 INPUT_FOLDER = Path("data/RM_Brain_3D-SPGR")
 ATLAS_FOLDER = Path("data/atlas/dcm/")
+
+COREGISTRAION_SIZE = (64, 64, 64)
 
 
 def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
@@ -18,6 +20,20 @@ def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
     # Your code here:
     #   ...
     return np.mean((image1 - image2) ** 2)
+
+
+def layer_mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
+    """Compute the mean squared error between two images."""
+    # Your code here:
+    #   ...
+    return np.mean((image1 - image2) ** 2, axis=(1, 2))
+
+
+def residual_vector(image1: np.ndarray, image2: np.ndarray) -> np.ndarray:
+    """Compute the residual vector between two images."""
+    # Your code here:
+    #   ...
+    return (image1 - image2).flatten()
 
 
 def found_best_coregistration(
@@ -38,10 +54,11 @@ def found_best_coregistration(
 
         transformed_img = apply_rigid_transformation(input_img, parameters)
 
-        return mean_squared_error(ref_img, transformed_img)
+        # return layer_mean_squared_error(ref_img, transformed_img)
+        return residual_vector(ref_img, transformed_img)
 
     # Apply least squares optimization
-    result = minimize(function_to_minimize, initial_parameters, method="Nelder-Mead")
+    result = least_squares(function_to_minimize, initial_parameters, verbose=2)
     return result
 
 
@@ -62,22 +79,30 @@ def main():
     # ref_metadata = dicom_ref[1]["metadata"]
     print(f"{ref_pixel_array.shape=}")
 
-    # # Find the best coregistration parameters
-    # best_parameters = found_best_coregistration(ref_pixel_array, input_pixel_array)
-    # print(f"{best_parameters=}")
+    # Find the best coregistration parameters
+    resized_ref_pixel_array = resize(
+        ref_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
+    )
+    resized_input_pixel_array = resize(
+        input_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
+    )
+    best_parameters = found_best_coregistration(
+        resized_ref_pixel_array, resized_input_pixel_array
+    )
+    print(f"{best_parameters.x=}")
 
-    # Load atlas dicom files
-    atlas_dicom = read_dicom_files(ATLAS_FOLDER)
-    atlas_pixel_array = atlas_dicom[1]["pixel_array"]
-    # atlas_metadata = atlas_dicom[1]["metadata"]
-    print(f"{atlas_pixel_array.shape=}")
-
-    # Get atlas thalamus mask
-    thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
-    print(f"{thalamus_mask.shape=}")
-    print(np.unique(thalamus_mask))
-
-    plot_interactive_dicom(thalamus_mask.astype(np.float32), axis=0)
+    # # Load atlas dicom files
+    # atlas_dicom = read_dicom_files(ATLAS_FOLDER)
+    # atlas_pixel_array = atlas_dicom[1]["pixel_array"]
+    # # atlas_metadata = atlas_dicom[1]["metadata"]
+    # print(f"{atlas_pixel_array.shape=}")
+    #
+    # # Get atlas thalamus mask
+    # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
+    # print(f"{thalamus_mask.shape=}")
+    # print(np.unique(thalamus_mask))
+    #
+    # plot_interactive_dicom(thalamus_mask.astype(np.float32), axis=0)
 
 
 if __name__ == "__main__":
