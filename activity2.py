@@ -67,29 +67,53 @@ def main():
     # Load dicom file to be registered
     dicom_input = read_dicom_files(INPUT_FOLDER)
     input_pixel_array = dicom_input[1]["pixel_array"]
-    # input_metadata = dicom_input[1]["metadata"]
+    input_metadata = dicom_input[1]["metadata"]
+
+    ordered_indices = np.argsort([m.ImagePositionPatient[2] for m in input_metadata])[
+        ::-1
+    ]
+    input_pixel_array = input_pixel_array[ordered_indices]
+    input_metadata = [input_metadata[i] for i in ordered_indices]
+
     print(f"{input_pixel_array.shape=}")
+
+    # plot_interactive_dicom(input_pixel_array, axis=0, normalize=True, apply_log=True)
 
     # Load dicom reference files
     dicom_ref = read_dicom_files(REF_FOLDER)
     ref_pixel_array = dicom_ref[1]["pixel_array"]
+    ref_metadata = dicom_ref[1]["metadata"]
+
     ref_pixel_array = resize(
         ref_pixel_array, input_pixel_array.shape, anti_aliasing=True
     )
-    # ref_metadata = dicom_ref[1]["metadata"]
+
+    # Sort the pixel array
+    ordered_indices = np.argsort(
+        [
+            ref_metadata[0]
+            .PerFrameFunctionalGroupsSequence[i]
+            .PlanePositionSequence[0]
+            .ImagePositionPatient[2]
+            for i in range(len(ref_metadata[0].PerFrameFunctionalGroupsSequence))
+        ]
+    )[::-1]
+    ref_pixel_array = ref_pixel_array[ordered_indices]
     print(f"{ref_pixel_array.shape=}")
 
-    # Find the best coregistration parameters
-    resized_ref_pixel_array = resize(
-        ref_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
-    )
-    resized_input_pixel_array = resize(
-        input_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
-    )
-    best_parameters = found_best_coregistration(
-        resized_ref_pixel_array, resized_input_pixel_array
-    )
-    print(f"{best_parameters.x=}")
+    plot_interactive_dicom(ref_pixel_array, axis=0, normalize=True, apply_log=True)
+
+    # # Find the best coregistration parameters
+    # resized_ref_pixel_array = resize(
+    #     ref_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
+    # )
+    # resized_input_pixel_array = resize(
+    #     input_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
+    # )
+    # best_parameters = found_best_coregistration(
+    #     resized_ref_pixel_array, resized_input_pixel_array
+    # )
+    # print(f"{best_parameters.x=}")
 
     # # Load atlas dicom files
     # atlas_dicom = read_dicom_files(ATLAS_FOLDER)
