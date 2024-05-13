@@ -1,18 +1,23 @@
 from pathlib import Path
 
 import numpy as np
+from matplotlib import pyplot as plt
 from scipy.optimize import least_squares
 from skimage.transform import resize
 
 from dicom import get_atlas_mask, read_dicom_files
-from transform import apply_inverse_rigid_transformation, apply_rigid_transformation
+from transform import (apply_inverse_rigid_transformation,
+                       apply_rigid_transformation)
 from visualize import plot_interactive_dicom
 
 REF_FOLDER = Path("data/REF")
 INPUT_FOLDER = Path("data/RM_Brain_3D-SPGR")
 ATLAS_FOLDER = Path("data/atlas/dcm/")
 
-COREGISTRAION_SIZE = (64, 64, 64)
+COREGISTRATION_SIZE = (64, 64, 64)
+
+# INPUT_INTEREST_REGION = (slice(0, 150), slice(54, 458), slice(54, 458))
+INPUT_INTEREST_REGION = (slice(0, 150), slice(0, 458), slice(70, 450))
 
 
 def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
@@ -58,7 +63,9 @@ def found_best_coregistration(
         return residual_vector(ref_img, transformed_img)
 
     # Apply least squares optimization
-    result = least_squares(function_to_minimize, initial_parameters, verbose=2)
+    result = least_squares(
+        function_to_minimize, initial_parameters, max_nfev=50, verbose=2
+    )
     return result
 
 
@@ -69,11 +76,21 @@ def main():
     input_pixel_array = dicom_input[1]["pixel_array"]
     input_metadata = dicom_input[1]["metadata"]
 
+    # Sort the pixel array
     ordered_indices = np.argsort([m.ImagePositionPatient[2] for m in input_metadata])[
         ::-1
     ]
     input_pixel_array = input_pixel_array[ordered_indices]
     input_metadata = [input_metadata[i] for i in ordered_indices]
+
+    # Select the region of interest
+    input_pixel_array = input_pixel_array[INPUT_INTEREST_REGION]
+    input_metadata = input_metadata[INPUT_INTEREST_REGION[0]]
+
+    # Normalize the pixel array
+    input_pixel_array = (input_pixel_array - np.min(input_pixel_array)) / (
+        np.max(input_pixel_array) - np.min(input_pixel_array)
+    )
 
     print(f"{input_pixel_array.shape=}")
 
@@ -84,9 +101,9 @@ def main():
     ref_pixel_array = dicom_ref[1]["pixel_array"]
     ref_metadata = dicom_ref[1]["metadata"]
 
-    ref_pixel_array = resize(
-        ref_pixel_array, input_pixel_array.shape, anti_aliasing=True
-    )
+    # ref_pixel_array = resize(
+    #     ref_pixel_array, input_pixel_array.shape, anti_aliasing=True
+    # )
 
     # Sort the pixel array
     ordered_indices = np.argsort(
@@ -99,21 +116,38 @@ def main():
         ]
     )[::-1]
     ref_pixel_array = ref_pixel_array[ordered_indices]
+
+    # Normalize the pixel array
+    ref_pixel_array = (ref_pixel_array - np.min(ref_pixel_array)) / (
+        np.max(ref_pixel_array) - np.min(ref_pixel_array)
+    )
+
     print(f"{ref_pixel_array.shape=}")
+    print(f"{ref_pixel_array.min()=} {ref_pixel_array.max()=}")
 
-    plot_interactive_dicom(ref_pixel_array, axis=0, normalize=True, apply_log=True)
+    # plot_interactive_dicom(ref_pixel_array, axis=0, normalize=True, apply_log=True)
+    # plot_interactive_dicom(input_pixel_array, axis=0, normalize=True, apply_log=True)
 
-    # # Find the best coregistration parameters
-    # resized_ref_pixel_array = resize(
-    #     ref_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
-    # )
-    # resized_input_pixel_array = resize(
-    #     input_pixel_array, COREGISTRAION_SIZE, anti_aliasing=True
-    # )
-    # best_parameters = found_best_coregistration(
-    #     resized_ref_pixel_array, resized_input_pixel_array
-    # )
-    # print(f"{best_parameters.x=}")
+    # Find the best coregistration parameters
+    resized_ref_pixel_array = resize(
+        ref_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
+    )
+    resized_input_pixel_array = resize(
+        input_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
+    )
+    best_parameters = found_best_coregistration(
+        resized_ref_pixel_array, resized_input_pixel_array
+    )
+    print(f"{best_parameters.x=}")
+
+    # Apply the best coregistration parameters
+    transformed_input_pixel_array = apply_rigid_transformation(
+        input_pixel_array, best_parameters.x
+    )
+
+    plot_interactive_dicom(
+        transformed_input_pixel_array, axis=0, normalize=True, apply_log=True
+    )
 
     # # Load atlas dicom files
     # atlas_dicom = read_dicom_files(ATLAS_FOLDER)
