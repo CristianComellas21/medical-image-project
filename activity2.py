@@ -7,7 +7,11 @@ from scipy.optimize import least_squares, minimize
 from skimage.transform import resize
 
 from dicom import get_atlas_mask, read_dicom_files
-from transform import apply_inverse_rigid_transformation, apply_rigid_transformation
+from transform import (
+    apply_inverse_rigid_transformation,
+    apply_rigid_transformation,
+    print_parameters,
+)
 from visualize import plot_interactive_dicom
 
 REF_FOLDER = Path("data/REF")
@@ -116,6 +120,7 @@ def main():
     input_metadata = [input_metadata[i] for i in ordered_indices]
 
     # Select the region of interest
+    original_input_pixel_array = input_pixel_array
     input_pixel_array = input_pixel_array[INPUT_INTEREST_REGION]
     input_metadata = input_metadata[INPUT_INTEREST_REGION[0]]
 
@@ -126,16 +131,10 @@ def main():
 
     print(f"{input_pixel_array.shape=}")
 
-    # plot_interactive_dicom(input_pixel_array, axis=0, normalize=True, apply_log=True)
-
     # Load dicom reference files
     dicom_ref = read_dicom_files(REF_FOLDER)
     ref_pixel_array = dicom_ref[1]["pixel_array"]
     ref_metadata = dicom_ref[1]["metadata"]
-
-    # ref_pixel_array = resize(
-    #     ref_pixel_array, input_pixel_array.shape, anti_aliasing=True
-    # )
 
     # Sort the pixel array
     ordered_indices = np.argsort(
@@ -154,12 +153,6 @@ def main():
         np.max(ref_pixel_array) - np.min(ref_pixel_array)
     )
 
-    print(f"{ref_pixel_array.shape=}")
-    print(f"{ref_pixel_array.min()=} {ref_pixel_array.max()=}")
-
-    # plot_interactive_dicom(ref_pixel_array, axis=0, normalize=True, apply_log=True)
-    # plot_interactive_dicom(input_pixel_array, axis=0, normalize=True, apply_log=True)
-
     if override:
         # Find the best coregistration parameters
         resized_ref_pixel_array = resize(
@@ -175,36 +168,52 @@ def main():
         best_parameters = best_parameters.x
         np.save("best_parameters.npy", best_parameters)
 
-        print(f"{best_parameters=}")
+        print_parameters(best_parameters)
 
     else:
         best_parameters = np.load("best_parameters.npy")
-        print(f"{best_parameters=}")
+        print_parameters(best_parameters)
 
-    # Apply the best coregistration parameters
-    transformed_input_pixel_array = apply_rigid_transformation(
-        input_pixel_array, best_parameters
+    # Load atlas dicom files
+    atlas_dicom = read_dicom_files(ATLAS_FOLDER)
+    atlas_pixel_array = atlas_dicom[1]["pixel_array"]
+
+    # Get atlas thalamus mask
+    thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
+
+    # Resize the thalamus mask to the input size
+    resized_thalamus_mask = resize(
+        thalamus_mask, input_pixel_array.shape, anti_aliasing=False
     )
 
-    # Check alignment of the images
+    # Apply the inverse of the best coregistration parameters to the thalamus mask
+    transformed_thalamus_mask = apply_inverse_rigid_transformation(
+        resized_thalamus_mask.astype(np.float32), best_parameters
+    )
+
+    # Convert again to binary mask
+    transformed_thalamus_mask = (np.abs(transformed_thalamus_mask) > 0.5).astype(
+        np.int8
+    )
+
+    # Apply colormap to both, the input image and the thalamus mask
+    colormapped_input_pixel_array = plt.cm.bone(input_pixel_array)
+    colormapped_transformed_thalamus_mask = plt.cm.tab10(transformed_thalamus_mask)
+
+    # Alpha blend the images
+    alpha = 0.3
+    blended_image = (
+        alpha * colormapped_input_pixel_array
+        + (1 - alpha) * colormapped_transformed_thalamus_mask
+    )
+
+    indices = transformed_thalamus_mask == 0
+    blended_image[indices] = colormapped_input_pixel_array[indices]
+
+    # Plot the blended image
     plot_interactive_dicom(
-        transformed_input_pixel_array, axis=0, normalize=True, apply_log=True
+        blended_image, axis=0, normalize=False, apply_log=False, apply_colormap=False
     )
-
-    plot_interactive_dicom(ref_pixel_array, axis=0, normalize=True, apply_log=True)
-
-    # # Load atlas dicom files
-    # atlas_dicom = read_dicom_files(ATLAS_FOLDER)
-    # atlas_pixel_array = atlas_dicom[1]["pixel_array"]
-    # # atlas_metadata = atlas_dicom[1]["metadata"]
-    # print(f"{atlas_pixel_array.shape=}")
-    #
-    # # Get atlas thalamus mask
-    # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
-    # print(f"{thalamus_mask.shape=}")
-    # print(np.unique(thalamus_mask))
-    #
-    # plot_interactive_dicom(thalamus_mask.astype(np.float32), axis=0)
 
 
 if __name__ == "__main__":

@@ -16,14 +16,22 @@ def plot_interactive_dicom(
     axis: int = 0,
     aspect: float = 1.0,
     colormap: str = "bone",
+    apply_colormap: bool = True,
     normalize: bool = False,
     apply_log: bool = False,
 ) -> None:
 
     # Convert all the slices to a color mapped version using the "bone" colormap
-    color_mapped_slices = __apply_colormap_to_dicom(
-        dicom_pixel_array, axis=axis, normalize=normalize, apply_log=apply_log, colormap=colormap
-    )
+    if apply_colormap:
+        color_mapped_slices = __apply_colormap_to_dicom(
+            dicom_pixel_array,
+            axis=axis,
+            normalize=normalize,
+            apply_log=apply_log,
+            colormap=colormap,
+        )
+    else:
+        color_mapped_slices = dicom_pixel_array
 
     # Create a figure and axis and adjust the bottom of the plot to make space for the slider
     fig, ax = plt.subplots()
