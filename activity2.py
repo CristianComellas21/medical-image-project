@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.optimize import least_squares
+from scipy.optimize import least_squares, minimize
 from skimage.transform import resize
 
 from dicom import get_atlas_mask, read_dicom_files
@@ -23,7 +23,7 @@ def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
     """Compute the mean squared error between two images."""
     # Your code here:
     #   ...
-    return np.mean((image1 - image2) ** 2)
+    return [np.mean((image1 - image2) ** 2)]
 
 
 def layer_mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
@@ -59,11 +59,27 @@ def found_best_coregistration(
         transformed_img = apply_rigid_transformation(input_img, parameters)
 
         # return layer_mean_squared_error(ref_img, transformed_img)
-        return residual_vector(ref_img, transformed_img)
+        return mean_squared_error(ref_img, transformed_img)
+        # return residual_vector(ref_img, transformed_img)
 
     # Apply least squares optimization
-    result = least_squares(
-        function_to_minimize, initial_parameters, max_nfev=50, verbose=2
+    # result = least_squares(
+    #     function_to_minimize, initial_parameters, max_nfev=50, verbose=2
+    # )
+    # result = least_squares(
+    #     function_to_minimize,
+    #     initial_parameters,
+    #     bounds=([-180, -180, -180, -10, -10, -10], [180, 180, 180, 10, 10, 10]),
+    #     xtol=1e-6,
+    #     ftol=1e-6,
+    #     max_nfev=1000,
+    #     verbose=2,
+    # )
+    result = minimize(
+        function_to_minimize,
+        initial_parameters,
+        method="Powell",
+        options={"maxiter": 1000, "disp": True},
     )
     return result
 
@@ -170,6 +186,7 @@ def main():
         input_pixel_array, best_parameters
     )
 
+    # Check alignment of the images
     plot_interactive_dicom(
         transformed_input_pixel_array, axis=0, normalize=True, apply_log=True
     )
