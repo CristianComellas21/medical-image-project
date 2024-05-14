@@ -8,7 +8,6 @@ from scipy.ndimage import rotate
 from tqdm import tqdm
 
 from dicom import get_segmentation_layers, read_dicom_files
-from visualize import plot_interactive_dicom
 
 # Define constants for the paths to the DICOM files
 DICOM_FOLDER = "data/HCC-TACE-Seg/HCC_003"
@@ -95,8 +94,6 @@ def main():
     cm_segmentation = "tab10"
     img_min = -1000  # pixel_array.min()
     img_max = 1000  # pixel_array.max()
-    # img_min = pixel_array.min()
-    # img_max = pixel_array.max()
     aspect = slice_thickness / pixel_spacing[0]
     alpha = 0.3
 
