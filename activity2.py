@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
@@ -6,8 +7,7 @@ from scipy.optimize import least_squares
 from skimage.transform import resize
 
 from dicom import get_atlas_mask, read_dicom_files
-from transform import (apply_inverse_rigid_transformation,
-                       apply_rigid_transformation)
+from transform import apply_inverse_rigid_transformation, apply_rigid_transformation
 from visualize import plot_interactive_dicom
 
 REF_FOLDER = Path("data/REF")
@@ -16,7 +16,6 @@ ATLAS_FOLDER = Path("data/atlas/dcm/")
 
 COREGISTRATION_SIZE = (64, 64, 64)
 
-# INPUT_INTEREST_REGION = (slice(0, 150), slice(54, 458), slice(54, 458))
 INPUT_INTEREST_REGION = (slice(0, 150), slice(0, 458), slice(70, 450))
 
 
@@ -46,7 +45,7 @@ def found_best_coregistration(
 ) -> tuple[float, ...]:
     """Find the best registration parameters."""
     initial_parameters = [
-        0,  # Angle of rotation in degrees around axial axis (0)
+        120,  # Angle of rotation in degrees around axial axis (0)
         0,  # Angle of rotation in degrees around coronal axis (1)
         0,  # Angle of rotation in degrees around sagittal axis (2)
         0,  # Translation axis 0
@@ -70,6 +69,23 @@ def found_best_coregistration(
 
 
 def main():
+
+    # Parse the arguments
+    parser = ArgumentParser()
+
+    # Override the transformation parameters
+    parser.add_argument(
+        "-o",
+        "--override",
+        action="store_true",
+        default=False,
+        help="Override the transformation parameters, recalculating them.",
+    )
+
+    args = parser.parse_args()
+
+    # Get the override flag
+    override = args.override
 
     # Load dicom file to be registered
     dicom_input = read_dicom_files(INPUT_FOLDER)
@@ -128,26 +144,37 @@ def main():
     # plot_interactive_dicom(ref_pixel_array, axis=0, normalize=True, apply_log=True)
     # plot_interactive_dicom(input_pixel_array, axis=0, normalize=True, apply_log=True)
 
-    # Find the best coregistration parameters
-    resized_ref_pixel_array = resize(
-        ref_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
-    )
-    resized_input_pixel_array = resize(
-        input_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
-    )
-    best_parameters = found_best_coregistration(
-        resized_ref_pixel_array, resized_input_pixel_array
-    )
-    print(f"{best_parameters.x=}")
+    if override:
+        # Find the best coregistration parameters
+        resized_ref_pixel_array = resize(
+            ref_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
+        )
+        resized_input_pixel_array = resize(
+            input_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
+        )
+        best_parameters = found_best_coregistration(
+            resized_ref_pixel_array, resized_input_pixel_array
+        )
+
+        best_parameters = best_parameters.x
+        np.save("best_parameters.npy", best_parameters)
+
+        print(f"{best_parameters=}")
+
+    else:
+        best_parameters = np.load("best_parameters.npy")
+        print(f"{best_parameters=}")
 
     # Apply the best coregistration parameters
     transformed_input_pixel_array = apply_rigid_transformation(
-        input_pixel_array, best_parameters.x
+        input_pixel_array, best_parameters
     )
 
     plot_interactive_dicom(
         transformed_input_pixel_array, axis=0, normalize=True, apply_log=True
     )
+
+    plot_interactive_dicom(ref_pixel_array, axis=0, normalize=True, apply_log=True)
 
     # # Load atlas dicom files
     # atlas_dicom = read_dicom_files(ATLAS_FOLDER)
