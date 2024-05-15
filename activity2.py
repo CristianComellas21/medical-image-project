@@ -21,6 +21,7 @@ ATLAS_FOLDER = Path("data/atlas/dcm/")
 COREGISTRATION_SIZE = (64, 64, 64)
 
 INPUT_INTEREST_REGION = (slice(0, 150), slice(0, 458), slice(70, 450))
+ATLAS_INTEREST_REGION = slice(6, 181)
 
 
 def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
@@ -135,6 +136,7 @@ def main():
     dicom_ref = read_dicom_files(REF_FOLDER)
     ref_pixel_array = dicom_ref[1]["pixel_array"]
     ref_metadata = dicom_ref[1]["metadata"]
+    print(f"{ref_pixel_array.shape=}")
 
     # Sort the pixel array
     ordered_indices = np.argsort(
@@ -176,28 +178,33 @@ def main():
 
     # Load atlas dicom files
     atlas_dicom = read_dicom_files(ATLAS_FOLDER)
-    atlas_pixel_array = atlas_dicom[1]["pixel_array"]
+    atlas_pixel_array = atlas_dicom[1]["pixel_array"][::-1, :, :]
+    print(f"{atlas_pixel_array.shape=}")
 
     # Get atlas thalamus mask
-    thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
+    # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
+    temp = atlas_pixel_array > 0
+    thalamus_mask = temp
 
     # Resize the thalamus mask to the input size
     resized_thalamus_mask = resize(
-        thalamus_mask, input_pixel_array.shape, anti_aliasing=False
+        thalamus_mask, ref_pixel_array.shape, anti_aliasing=False
     )
 
     # Apply the inverse of the best coregistration parameters to the thalamus mask
-    transformed_thalamus_mask = apply_inverse_rigid_transformation(
-        resized_thalamus_mask.astype(np.float32), best_parameters
-    )
+    # transformed_thalamus_mask = apply_inverse_rigid_transformation(
+    #     resized_thalamus_mask.astype(np.float32), best_parameters
+    # )
 
+    transformed_thalamus_mask = resized_thalamus_mask
     # Convert again to binary mask
     transformed_thalamus_mask = (np.abs(transformed_thalamus_mask) > 0.5).astype(
         np.int8
     )
 
     # Apply colormap to both, the input image and the thalamus mask
-    colormapped_input_pixel_array = plt.cm.bone(input_pixel_array)
+    # colormapped_input_pixel_array = plt.cm.bone(input_pixel_array)
+    colormapped_input_pixel_array = plt.cm.bone(ref_pixel_array)
     colormapped_transformed_thalamus_mask = plt.cm.tab10(transformed_thalamus_mask)
 
     # Alpha blend the images
