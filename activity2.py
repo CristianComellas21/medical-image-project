@@ -91,6 +91,10 @@ def found_best_coregistration(
 
 def main():
 
+    # ====================================================
+    # ================= ARGUMENT PARSING =================
+    # ====================================================
+
     # Parse the arguments
     parser = ArgumentParser()
 
@@ -108,6 +112,12 @@ def main():
     # Get the override flag
     override = args.override
 
+    # ====================================================
+    # ================== LOAD DICOM FILES ================
+    # ====================================================
+
+    # --------- INPUT DICOM FILES ---------
+
     # Load dicom file to be registered
     dicom_input = read_dicom_files(INPUT_FOLDER)
     input_pixel_array = dicom_input[1]["pixel_array"]
@@ -121,7 +131,6 @@ def main():
     input_metadata = [input_metadata[i] for i in ordered_indices]
 
     # Select the region of interest
-    original_input_pixel_array = input_pixel_array
     input_pixel_array = input_pixel_array[INPUT_INTEREST_REGION]
     input_metadata = input_metadata[INPUT_INTEREST_REGION[0]]
 
@@ -130,13 +139,12 @@ def main():
         np.max(input_pixel_array) - np.min(input_pixel_array)
     )
 
-    print(f"{input_pixel_array.shape=}")
+    # --------- REFERENCE DICOM FILES ---------
 
     # Load dicom reference files
     dicom_ref = read_dicom_files(REF_FOLDER)
     ref_pixel_array = dicom_ref[1]["pixel_array"]
     ref_metadata = dicom_ref[1]["metadata"]
-    print(f"{ref_pixel_array.shape=}")
 
     # Sort the pixel array
     ordered_indices = np.argsort(
@@ -155,18 +163,34 @@ def main():
         np.max(ref_pixel_array) - np.min(ref_pixel_array)
     )
 
+    # --------- ATLAS DICOM FILES ---------
+
+    # Load atlas dicom files
+    atlas_dicom = read_dicom_files(ATLAS_FOLDER)
+    atlas_pixel_array = atlas_dicom[1]["pixel_array"][::-1, :, :]
+
+    # ====================================================
+    # =============== COREGISTRATION PROCESS =============
+    # ====================================================
+
+    # Override the transformation parameters if needed
+    # executing the optimization process
     if override:
-        # Find the best coregistration parameters
+
+        # Resize the images to the same size, which is smaller to speed up the process
         resized_ref_pixel_array = resize(
             ref_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
         )
         resized_input_pixel_array = resize(
             input_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
         )
+
+        # Find the best coregistration parameters
         best_parameters = found_best_coregistration(
             resized_ref_pixel_array, resized_input_pixel_array
         )
 
+        # Save the best parameters
         best_parameters = best_parameters.x
         np.save("best_parameters.npy", best_parameters)
 
@@ -176,10 +200,9 @@ def main():
         best_parameters = np.load("best_parameters.npy")
         print_parameters(best_parameters)
 
-    # Load atlas dicom files
-    atlas_dicom = read_dicom_files(ATLAS_FOLDER)
-    atlas_pixel_array = atlas_dicom[1]["pixel_array"][::-1, :, :]
-    print(f"{atlas_pixel_array.shape=}")
+    # ====================================================
+    # =============== VISUALIZATION PROCESS ==============
+    # ====================================================
 
     # Get atlas thalamus mask
     # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
