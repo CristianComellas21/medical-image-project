@@ -212,7 +212,7 @@ def main():
     colormapped_ref_pixel_array = plt.cm.afmhot(ref_pixel_array)
 
     # Alpha blend the images
-    alpha = 0.2
+    alpha = 0.3
 
     blended_image = (
         alpha * colormapped_ref_pixel_array
@@ -269,7 +269,7 @@ def main():
 
     # Resize the thalamus mask to the input size
     resized_thalamus_mask = resize(
-        thalamus_mask, ref_pixel_array.shape, anti_aliasing=False
+        thalamus_mask, input_pixel_array.shape, anti_aliasing=False
     )
 
     # Apply the inverse of the best coregistration parameters to the thalamus mask
