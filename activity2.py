@@ -156,6 +156,13 @@ def main():
     atlas_dicom = read_dicom_files(ATLAS_FOLDER)
     atlas_pixel_array = atlas_dicom[1]["pixel_array"][::-1, :, :]
 
+    # Pad atlas pixel array with 6 zeros at each side on each axis
+    # to match the reference pixel array size
+    atlas_pixel_array = np.pad(atlas_pixel_array, 6)
+    print(atlas_pixel_array.shape)
+    print(ref_pixel_array.shape)
+
+    exit(0)
     # ====================================================
     # =============== COREGISTRATION PROCESS =============
     # ====================================================
