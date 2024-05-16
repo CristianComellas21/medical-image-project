@@ -8,6 +8,7 @@ from scipy.ndimage import rotate
 from tqdm import tqdm
 
 from dicom import get_segmentation_layers, read_dicom_files
+from visualize import plot_interactive_dicom
 
 # Define constants for the paths to the DICOM files
 DICOM_FOLDER = "data/HCC-TACE-Seg/HCC_003"
@@ -15,6 +16,7 @@ SEGMENTATION_PATH = (
     f"{DICOM_FOLDER}/09-12-1997-NA-AP LIVER-64595/300.000000-Segmentation-45632/1-1.dcm"
 )
 RESULTS_FOLDER = "results"
+FULL_CYCLE_SECONDS = 3
 
 
 def MIP_sagittal_plane(img_dcm: np.ndarray) -> np.ndarray:
@@ -48,6 +50,13 @@ def main():
         type=str,
         choices=["MIP", "CIP"],
         default="MIP",
+    )
+    parser.add_argument(
+        "-n",
+        "--n_projections",
+        help="Number of projections",
+        type=int,
+        default=260,
     )
     args = parser.parse_args()
 
@@ -92,15 +101,19 @@ def main():
     fig, _ = plt.subplots()
     cm_image = "bone"
     cm_segmentation = "tab10"
-    img_min = -1000  # pixel_array.min()
-    img_max = 1000  # pixel_array.max()
+    # img_min = pixel_array.min()
+    # img_max = pixel_array.max()
+    img_min = -1000
+    img_max = 1000
+    min_visualize = 0.5
     aspect = slice_thickness / pixel_spacing[0]
-    alpha = 0.3
+    alpha = 0.5
 
     #  Create projections
-    n = 36
+    n = args.n_projections
     projections = []
 
+    print(f"Creating {n} projections with mode {mode}.")
     for idx, angle in tqdm(
         enumerate(np.linspace(0, 360 * (n - 1) / n, num=n)),
         total=n,
@@ -135,6 +148,7 @@ def main():
 
         # Normalize the projection
         normalized_projection = (projection - img_min) / (img_max - img_min)
+        normalized_projection[normalized_projection < min_visualize] = 0
 
         # Apply colormap to the projections
         projection_cmp = plt.colormaps[cm_image](normalized_projection)
@@ -150,12 +164,16 @@ def main():
         indices = np.isclose(projection_segmentation, 0, atol=1e-5, rtol=1e-5)
         final_projection[indices] = projection_cmp[indices]
 
+        # Visualize the projection without axis neither white borders
+        # and put a black border around the image
         plt.imshow(
             final_projection,
-            vmin=img_min,
-            vmax=img_max,
+            vmin=min_visualize,
+            # vmax=175,
             aspect=aspect,
         )
+        plt.axis("off")
+
         plt.savefig(f"{RESULTS_FOLDER}/Projection_{mode}_{idx}.png")  # Save animation
         projections.append(final_projection)  # Save for later animation
 
@@ -165,14 +183,16 @@ def main():
             plt.imshow(
                 img,
                 animated=True,
-                vmin=img_min,
-                vmax=img_max,
+                vmin=min_visualize,
+                # vmax=175,
                 aspect=aspect,
             )
         ]
         for img in projections
     ]
-    anim = animation.ArtistAnimation(fig, animation_data, interval=250, blit=True)
+
+    interval = FULL_CYCLE_SECONDS * 1000 / n
+    anim = animation.ArtistAnimation(fig, animation_data, interval=interval, blit=True)
     anim.save(f"results/Animation_{mode}.gif")  # Save animation
     plt.show()  # Show animation
 
