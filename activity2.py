@@ -188,12 +188,45 @@ def main():
         print_parameters(best_parameters)
 
     # ====================================================
-    # =============== VISUALIZATION PROCESS ==============
+    # ============= VISUALIZE COREGISTRATION =============
     # ====================================================
 
-    # ------- Visualize the coregistered image -------
+    # Resize the input image to the reference image size
+    resized_input_pixel_array = resize(
+        input_pixel_array, ref_pixel_array.shape, anti_aliasing=False
+    )
 
-    # ------- Visualize the thalamus in the input space -------
+    # Apply the best coregistration parameters to the input image
+    transformed_input_pixel_array = apply_rigid_transformation(
+        resized_input_pixel_array, best_parameters
+    )
+
+    # Apply colormap to both, the transformed input image and the reference image
+    colormapped_transformed_input_pixel_array = plt.cm.bone(
+        transformed_input_pixel_array
+    )
+    colormapped_ref_pixel_array = plt.cm.afmhot(ref_pixel_array)
+
+    # Alpha blend the images
+    alpha = 0.2
+
+    blended_image = (
+        alpha * colormapped_ref_pixel_array
+        + (1 - alpha) * colormapped_transformed_input_pixel_array
+    )
+
+    # Plot the blended image
+    plot_interactive_dicom(
+        blended_image, axis=0, normalize=False, apply_log=False, apply_colormap=False
+    )
+
+    # ====================================================
+    # ====== CHECK THALAMUS ALIGNED WITH REFERENCE =======
+    # ====================================================
+
+    # ====================================================
+    # ======= VISUALIZE THALAMUS IN INPUT SPACE ==========
+    # ====================================================
 
     # Get atlas thalamus mask
     # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
