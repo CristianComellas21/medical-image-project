@@ -143,20 +143,7 @@ def main():
 
     # Load dicom reference files
     dicom_ref = read_dicom_files(REF_FOLDER)
-    ref_pixel_array = dicom_ref[1]["pixel_array"]
-    ref_metadata = dicom_ref[1]["metadata"]
-
-    # Sort the pixel array
-    ordered_indices = np.argsort(
-        [
-            ref_metadata[0]
-            .PerFrameFunctionalGroupsSequence[i]
-            .PlanePositionSequence[0]
-            .ImagePositionPatient[2]
-            for i in range(len(ref_metadata[0].PerFrameFunctionalGroupsSequence))
-        ]
-    )[::-1]
-    ref_pixel_array = ref_pixel_array[ordered_indices]
+    ref_pixel_array = dicom_ref[1]["pixel_array"][::-1, :, :]
 
     # Normalize the pixel array
     ref_pixel_array = (ref_pixel_array - np.min(ref_pixel_array)) / (
@@ -203,6 +190,10 @@ def main():
     # ====================================================
     # =============== VISUALIZATION PROCESS ==============
     # ====================================================
+
+    # ------- Visualize the coregistered image -------
+
+    # ------- Visualize the thalamus in the input space -------
 
     # Get atlas thalamus mask
     # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
