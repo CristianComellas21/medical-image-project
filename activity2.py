@@ -159,10 +159,7 @@ def main():
     # Pad atlas pixel array with 6 zeros at each side on each axis
     # to match the reference pixel array size
     atlas_pixel_array = np.pad(atlas_pixel_array, 6)
-    print(atlas_pixel_array.shape)
-    print(ref_pixel_array.shape)
 
-    exit(0)
     # ====================================================
     # =============== COREGISTRATION PROCESS =============
     # ====================================================
@@ -224,12 +221,44 @@ def main():
 
     # Plot the blended image
     plot_interactive_dicom(
-        blended_image, axis=0, normalize=False, apply_log=False, apply_colormap=False
+        blended_image,
+        axis=0,
+        normalize=False,
+        apply_log=False,
+        apply_colormap=False,
+        title="Coregistration",
     )
 
     # ====================================================
-    # ====== CHECK THALAMUS ALIGNED WITH REFERENCE =======
+    # ====== CHECK ATLAS IS ALIGNED WITH REFERENCE =======
     # ====================================================
+
+    # Convert atlas to binary mask
+    atlas_binary_pixel_array = atlas_pixel_array > 0
+
+    # Apply colormap to the reference image and the atlas mask
+    colormapped_ref_pixel_array = plt.cm.bone(ref_pixel_array)
+    colormapped_atlas_binary_pixel_array = plt.cm.tab10(atlas_binary_pixel_array)
+
+    # Alpha blend the images
+    alpha = 0.3
+    blended_image = (
+        alpha * colormapped_ref_pixel_array
+        + (1 - alpha) * colormapped_atlas_binary_pixel_array
+    )
+
+    indices = atlas_binary_pixel_array == 0
+    blended_image[indices] = colormapped_ref_pixel_array[indices]
+
+    # Plot the blended image
+    plot_interactive_dicom(
+        blended_image,
+        axis=0,
+        normalize=False,
+        apply_log=False,
+        apply_colormap=False,
+        title="Atlas in reference space",
+    )
 
     # ====================================================
     # ======= VISUALIZE THALAMUS IN INPUT SPACE ==========
