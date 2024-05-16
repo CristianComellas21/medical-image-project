@@ -23,6 +23,8 @@ COREGISTRATION_SIZE = (64, 64, 64)
 INPUT_INTEREST_REGION = (slice(0, 150), slice(0, 458), slice(70, 450))
 ATLAS_INTEREST_REGION = slice(6, 181)
 
+RESULTS_FOLDER = "results/activity2"
+
 
 def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
     """Compute the mean squared error between two images."""
