@@ -19,6 +19,7 @@ def plot_interactive_dicom(
     apply_colormap: bool = True,
     normalize: bool = False,
     apply_log: bool = False,
+    title: str = "",
 ) -> None:
 
     # Convert all the slices to a color mapped version using the "bone" colormap
@@ -35,6 +36,7 @@ def plot_interactive_dicom(
 
     # Create a figure and axis and adjust the bottom of the plot to make space for the slider
     fig, ax = plt.subplots()
+    plt.title(title)
     plt.subplots_adjust(bottom=0.25)
 
     color_mapped_slice = color_mapped_slices[INITIAL_SLICE]
