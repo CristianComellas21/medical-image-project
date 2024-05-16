@@ -265,9 +265,7 @@ def main():
     # ====================================================
 
     # Get atlas thalamus mask
-    # thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
-    temp = atlas_pixel_array > 0
-    thalamus_mask = temp
+    thalamus_mask = get_atlas_mask(atlas_pixel_array, "Thal")
 
     # Resize the thalamus mask to the input size
     resized_thalamus_mask = resize(
@@ -275,19 +273,17 @@ def main():
     )
 
     # Apply the inverse of the best coregistration parameters to the thalamus mask
-    # transformed_thalamus_mask = apply_inverse_rigid_transformation(
-    #     resized_thalamus_mask.astype(np.float32), best_parameters
-    # )
+    transformed_thalamus_mask = apply_inverse_rigid_transformation(
+        resized_thalamus_mask.astype(np.float32), best_parameters
+    )
 
-    transformed_thalamus_mask = resized_thalamus_mask
     # Convert again to binary mask
     transformed_thalamus_mask = (np.abs(transformed_thalamus_mask) > 0.5).astype(
         np.int8
     )
 
     # Apply colormap to both, the input image and the thalamus mask
-    # colormapped_input_pixel_array = plt.cm.bone(input_pixel_array)
-    colormapped_input_pixel_array = plt.cm.bone(ref_pixel_array)
+    colormapped_input_pixel_array = plt.cm.bone(input_pixel_array)
     colormapped_transformed_thalamus_mask = plt.cm.tab10(transformed_thalamus_mask)
 
     # Alpha blend the images
@@ -302,7 +298,12 @@ def main():
 
     # Plot the blended image
     plot_interactive_dicom(
-        blended_image, axis=0, normalize=False, apply_log=False, apply_colormap=False
+        blended_image,
+        axis=0,
+        normalize=False,
+        apply_log=False,
+        apply_colormap=False,
+        title="Thalamus in input space",
     )
 
 
