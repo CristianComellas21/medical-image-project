@@ -20,8 +20,7 @@ ATLAS_FOLDER = Path("data/atlas/dcm/")
 
 COREGISTRATION_SIZE = (64, 64, 64)
 
-INPUT_INTEREST_REGION = (slice(0, 150), slice(0, 458), slice(70, 450))
-ATLAS_INTEREST_REGION = slice(6, 181)
+INPUT_INTEREST_REGION = (slice(0, 150), slice(30, 470), slice(70, 450))
 
 RESULTS_FOLDER = "results/activity2"
 
@@ -31,20 +30,6 @@ def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
     # Your code here:
     #   ...
     return [np.mean((image1 - image2) ** 2)]
-
-
-def layer_mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
-    """Compute the mean squared error between two images."""
-    # Your code here:
-    #   ...
-    return np.mean((image1 - image2) ** 2, axis=(1, 2))
-
-
-def residual_vector(image1: np.ndarray, image2: np.ndarray) -> np.ndarray:
-    """Compute the residual vector between two images."""
-    # Your code here:
-    #   ...
-    return (image1 - image2).flatten()
 
 
 def found_best_coregistration(
@@ -65,23 +50,8 @@ def found_best_coregistration(
 
         transformed_img = apply_rigid_transformation(input_img, parameters)
 
-        # return layer_mean_squared_error(ref_img, transformed_img)
         return mean_squared_error(ref_img, transformed_img)
-        # return residual_vector(ref_img, transformed_img)
 
-    # Apply least squares optimization
-    # result = least_squares(
-    #     function_to_minimize, initial_parameters, max_nfev=50, verbose=2
-    # )
-    # result = least_squares(
-    #     function_to_minimize,
-    #     initial_parameters,
-    #     bounds=([-180, -180, -180, -10, -10, -10], [180, 180, 180, 10, 10, 10]),
-    #     xtol=1e-6,
-    #     ftol=1e-6,
-    #     max_nfev=1000,
-    #     verbose=2,
-    # )
     result = minimize(
         function_to_minimize,
         initial_parameters,
@@ -169,7 +139,7 @@ def main():
     # Override the transformation parameters if needed
     # executing the optimization process
     if override:
-
+        print("Calculating coregistration parameters...")
         # Resize the images to the same size, which is smaller to speed up the process
         resized_ref_pixel_array = resize(
             ref_pixel_array, COREGISTRATION_SIZE, anti_aliasing=True
@@ -190,6 +160,7 @@ def main():
         print_parameters(best_parameters)
 
     else:
+        print("Loading coregistration parameters...")
         best_parameters = np.load("best_parameters.npy")
         print_parameters(best_parameters)
 
