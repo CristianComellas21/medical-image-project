@@ -8,7 +8,6 @@ from scipy.ndimage import rotate
 from tqdm import tqdm
 
 from dicom import get_segmentation_layers, read_dicom_files
-from visualize import plot_interactive_dicom
 
 # Define constants for the paths to the DICOM files
 DICOM_FOLDER = "data/HCC-TACE-Seg/HCC_003"
@@ -41,6 +40,10 @@ def rotate_on_axial_plane(img_dcm: np.ndarray, angle_in_degrees: float) -> np.nd
 
 def main():
 
+    # ====================================================
+    # ================= ARGUMENT PARSING =================
+    # ====================================================
+
     # Parse the arguments
     parser = ArgumentParser()
     parser.add_argument(
@@ -63,6 +66,12 @@ def main():
     # Get the mode of projection
     mode = args.mode
 
+    # ====================================================
+    # ================== LOAD DICOM FILES ================
+    # ====================================================
+
+    # --------- INPUT DICOM FILES ---------
+
     # Load all DICOM files in the folder
     dicom_folder = Path(f"{DICOM_FOLDER}/09-12-1997-NA-AP LIVER-64595")
     dicom_files = read_dicom_files(dicom_folder)
@@ -78,6 +87,8 @@ def main():
     # Get pixel spacing
     pixel_spacing = metadata[0].PixelSpacing
 
+    # --------- REFERENCE DICOM FILES ---------
+
     # Get segmentation data
     segmentation_data = dicom_files["300.000000-Segmentation-45632"][1]
     segmentation_pixel_array = segmentation_data["pixel_array"]
@@ -88,11 +99,15 @@ def main():
         segmentation_pixel_array, segmentation_metadata
     )
 
-    # Sort the slices of the pixel array and the segmentation layers
+    # Sort the slices of the pixel array
     # The slices of the segmentation are sorted on the load function
     ordered_indices = np.argsort([m.ImagePositionPatient[2] for m in metadata])[::-1]
     pixel_array = pixel_array[ordered_indices]
     metadata = [metadata[i] for i in ordered_indices]
+
+    # ====================================================
+    # =============== CREATE PROJECTIONS =================
+    # ====================================================
 
     # Create folder for the results
     Path(RESULTS_FOLDER).mkdir(parents=True, exist_ok=True)
@@ -101,11 +116,8 @@ def main():
     fig, _ = plt.subplots()
     cm_image = "bone"
     cm_segmentation = "tab10"
-    # img_min = pixel_array.min()
-    # img_max = pixel_array.max()
-    img_min = -1000
+    img_min = -200
     img_max = 1000
-    min_visualize = 0.5
     aspect = slice_thickness / pixel_spacing[0]
     alpha = 0.5
 
@@ -148,7 +160,7 @@ def main():
 
         # Normalize the projection
         normalized_projection = (projection - img_min) / (img_max - img_min)
-        normalized_projection[normalized_projection < min_visualize] = 0
+        # normalized_projection[normalized_projection < min_visualize] = 0
 
         # Apply colormap to the projections
         projection_cmp = plt.colormaps[cm_image](normalized_projection)
@@ -168,8 +180,6 @@ def main():
         # and put a black border around the image
         plt.imshow(
             final_projection,
-            vmin=min_visualize,
-            # vmax=175,
             aspect=aspect,
         )
         plt.axis("off")
@@ -177,23 +187,35 @@ def main():
         plt.savefig(f"{RESULTS_FOLDER}/Projection_{mode}_{idx}.png")  # Save animation
         projections.append(final_projection)  # Save for later animation
 
+    # ====================================================
+    # ================== SAVE ANIMATION ==================
+    # ====================================================
+
     # Save and visualize animation
     animation_data = [
         [
             plt.imshow(
                 img,
                 animated=True,
-                vmin=min_visualize,
-                # vmax=175,
                 aspect=aspect,
             )
         ]
         for img in projections
     ]
 
-    interval = FULL_CYCLE_SECONDS * 1000 / n
+    # Add legend with the segmentation layers with boxes to indicate the color
+    plt.legend(
+        handles=[
+            plt.Rectangle((0, 0), 1, 1, color=plt.cm.tab10(i+1))
+            for i in range(len(segmentation_layers))
+        ],
+        labels=[layer["name"] for layer in segmentation_layers.values()],
+        loc="upper right",
+    )
+
+    interval = FULL_CYCLE_SECONDS * 1000 // n
     anim = animation.ArtistAnimation(fig, animation_data, interval=interval, blit=True)
-    anim.save(f"results/Animation_{mode}.gif")  # Save animation
+    anim.save(f"{RESULTS_FOLDER}/Animation_{mode}.gif")  # Save animation
     plt.show()  # Show animation
 
 

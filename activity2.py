@@ -2,8 +2,9 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
+from matplotlib import animation
 from matplotlib import pyplot as plt
-from scipy.optimize import least_squares, minimize
+from scipy.optimize import minimize
 from skimage.transform import resize
 
 from dicom import get_atlas_mask, read_dicom_files
@@ -78,11 +79,21 @@ def main():
         default=False,
         help="Override the transformation parameters, recalculating them.",
     )
+    parser.add_argument(
+        "-g",
+        "--generate_gif",
+        action="store_true",
+        default=False,
+        help="Generate gifs with the results",
+    )
 
     args = parser.parse_args()
 
     # Get the override flag
     override = args.override
+
+    # Get the generate gif flag
+    generate_gif = args.generate_gif
 
     # ====================================================
     # ================== LOAD DICOM FILES ================
@@ -202,6 +213,33 @@ def main():
         title="Coregistration",
     )
 
+    if generate_gif:
+
+        # Create folder to save the results
+        Path(RESULTS_FOLDER).mkdir(parents=True, exist_ok=True)
+
+        # Create gif with the coregistration result
+        fig = plt.figure()
+        fig.patch.set_visible(False)
+        plt.axis("off")
+
+        gif_data = [
+            [plt.imshow(blended_image[i], animated=True)]
+            for i in range(blended_image.shape[0])
+        ]
+        gif_data += gif_data[::-1]
+
+        interval = 4 * 1000 / blended_image.shape[0]
+        anim = animation.ArtistAnimation(
+            fig,
+            gif_data,
+            interval=interval,
+            blit=True,
+        )
+
+        anim.save(f"{RESULTS_FOLDER}/coregistration.gif")
+        plt.close()
+
     # ====================================================
     # ====== CHECK ATLAS IS ALIGNED WITH REFERENCE =======
     # ====================================================
@@ -232,6 +270,30 @@ def main():
         apply_colormap=False,
         title="Atlas in reference space",
     )
+
+    if generate_gif:
+
+        # Create gif with the atlas alignment result
+        fig, _ = plt.subplots()
+        fig.patch.set_visible(False)
+        plt.axis("off")
+
+        gif_data = [
+            [plt.imshow(blended_image[i], animated=True)]
+            for i in range(blended_image.shape[0])
+        ]
+        gif_data += gif_data[::-1]
+
+        interval = 4 * 1000 / blended_image.shape[0]
+        anim = animation.ArtistAnimation(
+            fig,
+            gif_data,
+            interval=interval,
+            blit=True,
+        )
+
+        anim.save(f"{RESULTS_FOLDER}/atlas_alignment.gif")
+        plt.close()
 
     # ====================================================
     # ======= VISUALIZE THALAMUS IN INPUT SPACE ==========
@@ -278,6 +340,30 @@ def main():
         apply_colormap=False,
         title="Thalamus in input space",
     )
+
+    if generate_gif:
+
+        # Create gif with the thalamus alignment result
+        fig, _ = plt.subplots()
+        fig.patch.set_visible(False)
+        plt.axis("off")
+
+        gif_data = [
+            [plt.imshow(blended_image[i], animated=True)]
+            for i in range(blended_image.shape[0])
+        ]
+        gif_data += gif_data[::-1]
+
+        interval = 8 * 1000 / blended_image.shape[0]
+        anim = animation.ArtistAnimation(
+            fig,
+            gif_data,
+            interval=interval,
+            blit=True,
+        )
+
+        anim.save(f"{RESULTS_FOLDER}/thalamus_alignment.gif")
+        plt.close()
 
 
 if __name__ == "__main__":
