@@ -31,8 +31,13 @@ def plot_interactive_dicom(
             apply_log=apply_log,
             colormap=colormap,
         )
-    else:
-        color_mapped_slices = dicom_pixel_array
+    else:    
+        color_mapped_slices = []
+        for i in range(dicom_pixel_array.shape[axis]):
+            color_mapped_slices.append(
+                dicom_pixel_array.take(i, axis=axis)
+            )
+        color_mapped_slices = np.array(color_mapped_slices)
 
     # Create a figure and axis and adjust the bottom of the plot to make space for the slider
     fig, ax = plt.subplots()
