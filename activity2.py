@@ -5,8 +5,9 @@ import numpy as np
 from matplotlib import animation
 from matplotlib import pyplot as plt
 from scipy.optimize import minimize
-from skimage.transform import resize
+from skimage.transform import resize, rescale
 
+from typing import List, Any
 from dicom import get_atlas_mask, read_dicom_files
 from transform import (
     apply_inverse_rigid_transformation,
@@ -21,15 +22,13 @@ ATLAS_FOLDER = Path("data/atlas/dcm/")
 
 COREGISTRATION_SIZE = (64, 64, 64)
 
-INPUT_INTEREST_REGION = (slice(0, 150), slice(30, 470), slice(70, 450))
+INPUT_INTEREST_REGION = (slice(0, 300), slice(15, 250), slice(35, 225))
 
 RESULTS_FOLDER = "results/activity2"
 
 
-def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> float:
+def mean_squared_error(image1: np.ndarray, image2: np.ndarray) -> List:
     """Compute the mean squared error between two images."""
-    # Your code here:
-    #   ...
     return [np.mean((image1 - image2) ** 2)]
 
 
@@ -38,7 +37,7 @@ def found_best_coregistration(
 ) -> tuple[float, ...]:
     """Find the best registration parameters."""
     initial_parameters = [
-        120,  # Angle of rotation in degrees around axial axis (0)
+        170,  # Angle of rotation in degrees around axial axis (0)
         0,  # Angle of rotation in degrees around coronal axis (1)
         0,  # Angle of rotation in degrees around sagittal axis (2)
         0,  # Translation axis 0
@@ -86,6 +85,14 @@ def main():
         default=False,
         help="Generate gifs with the results",
     )
+    parser.add_argument(
+        "-p",
+        "--plot",
+        action="store_true",
+        default=False,
+        help="Plot the results",
+    )
+
 
     args = parser.parse_args()
 
@@ -94,6 +101,9 @@ def main():
 
     # Get the generate gif flag
     generate_gif = args.generate_gif
+
+    # Get the plot flag
+    plot = args.plot
 
     # ====================================================
     # ================== LOAD DICOM FILES ================
@@ -112,6 +122,18 @@ def main():
     ]
     input_pixel_array = input_pixel_array[ordered_indices]
     input_metadata = [input_metadata[i] for i in ordered_indices]
+
+    # Get the pixel spacing and slice thickness of the input image
+    pixel_spacing = input_metadata[0].PixelSpacing
+    slice_thickness = input_metadata[0].SliceThickness
+
+    # Resize input to have the same spatial size as the reference (1x1x1 mm)
+    input_pixel_array = rescale(
+        input_pixel_array,
+        (slice_thickness, pixel_spacing[0], pixel_spacing[1]),
+        anti_aliasing=True,
+    )
+
 
     # Select the region of interest
     input_pixel_array = input_pixel_array[INPUT_INTEREST_REGION]
@@ -203,42 +225,46 @@ def main():
         + (1 - alpha) * colormapped_transformed_input_pixel_array
     )
 
-    # Plot the blended image
-    plot_interactive_dicom(
-        blended_image,
-        axis=0,
-        normalize=False,
-        apply_log=False,
-        apply_colormap=False,
-        title="Coregistration",
-    )
+    if plot:
+        for ax in range(3):
+            # Plot the blended image
+            plot_interactive_dicom(
+                blended_image,
+                axis=ax,
+                normalize=False,
+                apply_log=False,
+                apply_colormap=False,
+                title="Coregistration",
+            )
 
     if generate_gif:
 
-        # Create folder to save the results
-        Path(RESULTS_FOLDER).mkdir(parents=True, exist_ok=True)
+        for ax in range(3):
 
-        # Create gif with the coregistration result
-        fig = plt.figure()
-        fig.patch.set_visible(False)
-        plt.axis("off")
+            # Create folder to save the results
+            Path(RESULTS_FOLDER).mkdir(parents=True, exist_ok=True)
 
-        gif_data = [
-            [plt.imshow(blended_image[i], animated=True)]
-            for i in range(blended_image.shape[0])
-        ]
-        gif_data += gif_data[::-1]
+            # Create gif with the coregistration result
+            fig = plt.figure()
+            fig.patch.set_visible(False)
+            plt.axis("off")
 
-        interval = 4 * 1000 / blended_image.shape[0]
-        anim = animation.ArtistAnimation(
-            fig,
-            gif_data,
-            interval=interval,
-            blit=True,
-        )
+            gif_data = [
+                [plt.imshow(blended_image.take(i, axis=ax), animated=True)]
+                for i in range(blended_image.shape[ax])
+            ]
+            gif_data += gif_data[::-1]
 
-        anim.save(f"{RESULTS_FOLDER}/coregistration.gif")
-        plt.close()
+            interval = 4 * 1000 / blended_image.shape[ax]
+            anim = animation.ArtistAnimation(
+                fig,
+                gif_data,
+                interval=interval,
+                blit=True,
+            )
+
+            anim.save(f"{RESULTS_FOLDER}/coregistration{ax}.gif")
+            plt.close()
 
     # ====================================================
     # ====== CHECK ATLAS IS ALIGNED WITH REFERENCE =======
@@ -261,15 +287,16 @@ def main():
     indices = atlas_binary_pixel_array == 0
     blended_image[indices] = colormapped_ref_pixel_array[indices]
 
-    # Plot the blended image
-    plot_interactive_dicom(
-        blended_image,
-        axis=0,
-        normalize=False,
-        apply_log=False,
-        apply_colormap=False,
-        title="Atlas in reference space",
-    )
+    if plot:
+        # Plot the blended image
+        plot_interactive_dicom(
+            blended_image,
+            axis=0,
+            normalize=False,
+            apply_log=False,
+            apply_colormap=False,
+            title="Atlas in reference space",
+        )
 
     if generate_gif:
 
@@ -331,39 +358,42 @@ def main():
     indices = transformed_thalamus_mask == 0
     blended_image[indices] = colormapped_input_pixel_array[indices]
 
-    # Plot the blended image
-    plot_interactive_dicom(
-        blended_image,
-        axis=0,
-        normalize=False,
-        apply_log=False,
-        apply_colormap=False,
-        title="Thalamus in input space",
-    )
+    if plot:
+        for ax in range(3):
+            # Plot the blended image
+            plot_interactive_dicom(
+                blended_image,
+                axis=ax,
+                normalize=False,
+                apply_log=False,
+                apply_colormap=False,
+                title="Thalamus in input space",
+            )
 
     if generate_gif:
 
-        # Create gif with the thalamus alignment result
-        fig, _ = plt.subplots()
-        fig.patch.set_visible(False)
-        plt.axis("off")
+        for ax in range(3):
+            # Create gif with the thalamus alignment result
+            fig, _ = plt.subplots()
+            fig.patch.set_visible(False)
+            plt.axis("off")
 
-        gif_data = [
-            [plt.imshow(blended_image[i], animated=True)]
-            for i in range(blended_image.shape[0])
-        ]
-        gif_data += gif_data[::-1]
+            gif_data = [
+                [plt.imshow(blended_image.take(i, axis=ax), animated=True)]
+                for i in range(blended_image.shape[ax])
+            ]
+            gif_data += gif_data[::-1]
 
-        interval = 8 * 1000 / blended_image.shape[0]
-        anim = animation.ArtistAnimation(
-            fig,
-            gif_data,
-            interval=interval,
-            blit=True,
-        )
+            interval = 8 * 1000 / blended_image.shape[ax]
+            anim = animation.ArtistAnimation(
+                fig,
+                gif_data,
+                interval=interval,
+                blit=True,
+            )
 
-        anim.save(f"{RESULTS_FOLDER}/thalamus_alignment.gif")
-        plt.close()
+            anim.save(f"{RESULTS_FOLDER}/thalamus_alignment{ax}.gif")
+            plt.close()
 
 
 if __name__ == "__main__":
