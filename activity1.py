@@ -18,18 +18,18 @@ RESULTS_FOLDER = "results/activity1"
 FULL_CYCLE_SECONDS = 3
 
 
-def MIP_sagittal_plane(img_dcm: np.ndarray) -> np.ndarray:
-    """Compute the maximum intensity projection on the sagittal orientation."""
-    return np.max(img_dcm, axis=2)
+def MIP_coronal_plane(img_dcm: np.ndarray) -> np.ndarray:
+    """Compute the maximum intensity projection on the coronal orientation."""
+    return np.max(img_dcm, axis=1)
 
 
-def closest_index_different_from_zero_sagittal_plane(img):
-    """Return the closest index different from zero on the sagittal plane."""
+def closest_index_different_from_zero_coronal_plane(img):
+    """Return the closest index different from zero on the coronal plane."""
 
-    # Get the indices of the maximum value along the z-axis
-    indices = np.argmax(img != 0, axis=2)
+    # Get the indices of the maximum value along the y-axis
+    indices = np.argmax(img != 0, axis=1)
 
-    result = img[np.arange(img.shape[0])[:, None], np.arange(img.shape[1]), indices]
+    result = img[np.arange(img.shape[0])[:, None], indices, np.arange(img.shape[2])]    
     return result
 
 
@@ -81,6 +81,7 @@ def main():
     pixel_array = dicom_data["pixel_array"]
     metadata = dicom_data["metadata"]
 
+    # I have checked that the pixel spacing is the same for the images and the segmentation
     # Get slice thickness
     slice_thickness = metadata[0].SliceThickness
 
@@ -142,25 +143,24 @@ def main():
             for layer in segmentation_layers.values()
         ]
 
-        # Compute the maximum intensity projection on the sagittal orientation
-        projection = MIP_sagittal_plane(rotated_img)
+        # Compute the maximum intensity projection on the coronal orientation
+        projection = MIP_coronal_plane(rotated_img)
 
         if mode == "CIP":
             # Combine the segmentation layers
             projection_segmentation = np.sum(rotated_segmentation_layers, axis=0)
-            projection_segmentation = closest_index_different_from_zero_sagittal_plane(
+            projection_segmentation = closest_index_different_from_zero_coronal_plane(
                 projection_segmentation
             )
         elif mode == "MIP":
             # Combine the segmentation layers
             projection_segmentation_layers = np.array(
-                [MIP_sagittal_plane(layer) for layer in rotated_segmentation_layers]
+                [MIP_coronal_plane(layer) for layer in rotated_segmentation_layers]
             )
             projection_segmentation = projection_segmentation_layers.max(axis=0)
 
         # Normalize the projection
         normalized_projection = (projection - img_min) / (img_max - img_min)
-        # normalized_projection[normalized_projection < min_visualize] = 0
 
         # Apply colormap to the projections
         projection_cmp = plt.colormaps[cm_image](normalized_projection)
