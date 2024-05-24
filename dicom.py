@@ -111,6 +111,10 @@ def get_segmentation_layers(
         # Sort the pixel array
         pixel_array = pixel_array[ordered_indices]
 
+        # Rotate the pixel array 180 degrees due to
+        # the orientation of the patient
+        pixel_array = np.rot90(pixel_array, k=2, axes=(1, 2))
+
         # Store the pixel array in the dictionary along with the name and number
         layers[name] = {
             "pixel_array": pixel_array,
