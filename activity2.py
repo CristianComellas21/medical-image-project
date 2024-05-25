@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from scipy.optimize import minimize
 from skimage.transform import resize, rescale
 
-from typing import List, Any
+from typing import List
 from dicom import get_atlas_mask, read_dicom_files
 from transform import (
     apply_inverse_rigid_transformation,
