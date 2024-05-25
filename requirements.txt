@@ -1,0 +1,9 @@
+scipy==1.11.3
+scikit-image==0.20.0
+tqdm==4.65.0
+matplotlib==3.5.3
+numpy==1.26.4
+pydicom==2.4.4
+gdcm==1.1
+pylibjpeg==2.0.0
+pylibjpeg-libjpeg==2.1.0
