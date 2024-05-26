@@ -6,6 +6,7 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 from scipy.optimize import minimize
 from skimage.transform import resize, rescale
+from tqdm import tqdm
 
 from typing import List
 from dicom import get_atlas_mask, read_dicom_files
@@ -92,7 +93,13 @@ def main():
         default=False,
         help="Plot the results",
     )
-
+    parser.add_argument(
+        "-3",
+        "--three_d",
+        action="store_true",
+        default=False,
+        help="Generate 3D gifs with the results",
+    )
 
     args = parser.parse_args()
 
@@ -104,6 +111,9 @@ def main():
 
     # Get the plot flag
     plot = args.plot
+
+    # Get the 3D flag
+    three_d = args.three_d
 
     # ====================================================
     # ================== LOAD DICOM FILES ================
@@ -133,7 +143,6 @@ def main():
         (slice_thickness, pixel_spacing[0], pixel_spacing[1]),
         anti_aliasing=True,
     )
-
 
     # Select the region of interest
     input_pixel_array = input_pixel_array[INPUT_INTEREST_REGION]
@@ -266,6 +275,65 @@ def main():
             anim.save(f"{RESULTS_FOLDER}/coregistration{ax}.gif")
             plt.close()
 
+    if three_d:
+
+        alpha = 0.15
+        n_slices = 40
+        projections = []
+
+        # Projections
+        for angle in tqdm(
+            np.linspace(0, 360, n_slices),
+            desc="Generating 3D coregistration gif...",
+            unit="angle",
+        ):
+
+            # Rotate the input and reference images
+            rotated_input_pixel_array = apply_rigid_transformation(
+                transformed_input_pixel_array, [angle, 0, 0, 0, 0, 0]
+            )
+            rotated_ref_pixel_array = apply_rigid_transformation(
+                ref_pixel_array, [angle, 0, 0, 0, 0, 0]
+            )
+
+            # Compute the projection
+            projection_pixel_array = np.max(rotated_input_pixel_array, axis=1)
+            projection_ref_pixel_array = np.max(rotated_ref_pixel_array, axis=1)
+
+            # Apply colormap to both, the transformed input image and the reference image
+            colormapped_projection_pixel_array = plt.cm.bone(projection_pixel_array)
+            colormapped_projection_ref_pixel_array = plt.cm.hot(
+                projection_ref_pixel_array
+            )
+
+            # Alpha blend the images
+            blended_image = (
+                alpha * colormapped_projection_ref_pixel_array
+                + (1 - alpha) * colormapped_projection_pixel_array
+            )
+
+            projections.append(blended_image)
+
+        # Create gif with the coregistration result
+        fig = plt.figure()
+        fig.patch.set_visible(False)
+        plt.axis("off")
+
+        gif_data = [
+            [plt.imshow(projection, animated=True)] for projection in projections
+        ]
+
+        interval = 4 * 1000 / len(projections)
+        anim = animation.ArtistAnimation(
+            fig,
+            gif_data,
+            interval=interval,
+            blit=True,
+        )
+
+        anim.save(f"{RESULTS_FOLDER}/coregistration3D.gif")
+        plt.close()
+
     # ====================================================
     # ====== CHECK ATLAS IS ALIGNED WITH REFERENCE =======
     # ====================================================
@@ -394,6 +462,68 @@ def main():
 
             anim.save(f"{RESULTS_FOLDER}/thalamus_alignment{ax}.gif")
             plt.close()
+
+    if three_d:
+
+        alpha = 0.5
+        n_slices = 40
+        projections = []
+
+        # Projections
+        for angle in tqdm(
+            np.linspace(0, 360, n_slices),
+            desc="Generating 3D thalamus gif...",
+            unit="angle",
+        ):
+
+            # Rotate the input and reference images
+            rotated_input_pixel_array = apply_rigid_transformation(
+                input_pixel_array, [angle, 0, 0, 0, 0, 0]
+            )
+            rotated_thalamus_mask = apply_rigid_transformation(
+                transformed_thalamus_mask, [angle, 0, 0, 0, 0, 0]
+            )
+
+            # Compute the projection
+            projection_pixel_array = np.max(rotated_input_pixel_array, axis=1)
+            projection_thalamus_mask = np.max(rotated_thalamus_mask, axis=1)
+
+            # Apply colormap to both, the transformed input image and the reference image
+            colormapped_projection_pixel_array = plt.cm.bone(projection_pixel_array)
+            colormapped_projection_thalamus_mask = plt.cm.tab10(
+                projection_thalamus_mask
+            )
+
+            # Alpha blend the images
+            blended_image = (
+                alpha * colormapped_projection_thalamus_mask
+                + (1 - alpha) * colormapped_projection_pixel_array
+            )
+
+            indices = projection_thalamus_mask == 0  # Remove the background
+            blended_image[indices] = colormapped_projection_pixel_array[indices]
+
+            projections.append(blended_image)
+
+        # Create gif with the coregistration result
+        fig = plt.figure()
+        fig.patch.set_visible(False)
+        plt.axis("off")
+
+        gif_data = [
+            [plt.imshow(projection, animated=True)] for projection in projections
+        ]
+
+        interval = 4 * 1000 / len(projections)
+        anim = animation.ArtistAnimation(
+            fig,
+            gif_data,
+            interval=interval,
+            blit=True,
+        )
+
+        anim.save(f"{RESULTS_FOLDER}/thalamus_alignment3D.gif")
+        plt.close()
 
 
 if __name__ == "__main__":

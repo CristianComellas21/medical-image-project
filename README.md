@@ -133,6 +133,7 @@ The `activity2.py` script handles the coregistration of input DICOM images with 
 - `-o, --override`: Override the transformation parameters and recalculate them.
 - `-g, --generate_gif`: Generate GIFs with the results.
 - `-p, --plot`: Plot the results.
+- `-3, --three_d`: Generate 3D GIFs.
 
 #### Running the Script
 
@@ -145,7 +146,7 @@ python activity2.py
 To override the transformation parameters and generate GIFs with plots:
 
 ```bash
-python activity2.py -o -g -p
+python activity2.py -o -g -p -3
 ```
 
 ### Visualize Script Usage
