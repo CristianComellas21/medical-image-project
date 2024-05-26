@@ -37,6 +37,26 @@ def apply_inverse_rigid_transformation(
     return rotated_img
 
 
+def fix_parameters_scale(
+    parameters: tuple[float, ...],
+    coregistration_size: np.ndarray,
+    image_size: np.ndarray,
+) -> tuple[float, ...]:
+    """Fix the scale of the translation parameters, depending on the size the coregistration was performed and
+    the size of the image to be transformed."""
+
+    # Compute the scale factor for each dimension
+    scale_factor = image_size / coregistration_size
+
+    # Fix the translation parameters
+    angle_0, angle_1, angle_2, translation_0, translation_1, translation_2 = parameters
+    translation_0 *= scale_factor[0]
+    translation_1 *= scale_factor[1]
+    translation_2 *= scale_factor[2]
+
+    return (angle_0, angle_1, angle_2, translation_0, translation_1, translation_2)
+
+
 def print_parameters(parameters: tuple[float, ...]):
     """Print the parameters of the rigid transformation."""
     angle_0, angle_1, angle_2, translation_0, translation_1, translation_2 = parameters

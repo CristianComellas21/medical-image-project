@@ -14,6 +14,7 @@ from transform import (
     apply_inverse_rigid_transformation,
     apply_rigid_transformation,
     print_parameters,
+    fix_parameters_scale,
 )
 from visualize import plot_interactive_dicom
 
@@ -21,9 +22,9 @@ REF_FOLDER = Path("data/REF")
 INPUT_FOLDER = Path("data/RM_Brain_3D-SPGR")
 ATLAS_FOLDER = Path("data/atlas/dcm/")
 
-COREGISTRATION_SIZE = (64, 64, 64)
+COREGISTRATION_SIZE = np.array((64, 64, 64))
 
-INPUT_INTEREST_REGION = (slice(0, 300), slice(15, 250), slice(35, 225))
+INPUT_INTEREST_REGION = (slice(10, 350), slice(25, 240), slice(35, 225))
 
 RESULTS_FOLDER = "results/activity2"
 
@@ -215,9 +216,14 @@ def main():
         input_pixel_array, ref_pixel_array.shape, anti_aliasing=False
     )
 
+    # Scale the translation parameters
+    scaled_best_parameters = fix_parameters_scale(
+        best_parameters, COREGISTRATION_SIZE, ref_pixel_array.shape
+    )
+
     # Apply the best coregistration parameters to the input image
     transformed_input_pixel_array = apply_rigid_transformation(
-        resized_input_pixel_array, best_parameters
+        resized_input_pixel_array, scaled_best_parameters
     )
 
     # Apply colormap to both, the transformed input image and the reference image
@@ -264,7 +270,7 @@ def main():
             ]
             gif_data += gif_data[::-1]
 
-            interval = 4 * 1000 / blended_image.shape[ax]
+            interval = 8 * 1000 / blended_image.shape[ax]
             anim = animation.ArtistAnimation(
                 fig,
                 gif_data,
@@ -402,9 +408,14 @@ def main():
         thalamus_mask, input_pixel_array.shape, anti_aliasing=False
     )
 
+    # Scale the translation parameters
+    scaled_best_parameters = fix_parameters_scale(
+        best_parameters, COREGISTRATION_SIZE, input_pixel_array.shape
+    )
+
     # Apply the inverse of the best coregistration parameters to the thalamus mask
     transformed_thalamus_mask = apply_inverse_rigid_transformation(
-        resized_thalamus_mask.astype(np.float32), best_parameters
+        resized_thalamus_mask.astype(np.float32), scaled_best_parameters
     )
 
     # Convert again to binary mask
